@@ -1,0 +1,7 @@
+GNU ARM v12.2.1 - Default/
+.pdm/
+.projectlinkstore
+.settings/
+**/ulogger_certs.h
+**/ulogger_ids.h
+

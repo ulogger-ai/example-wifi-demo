@@ -1,0 +1,21 @@
+#CRC Codes for initially generated config files -- do not modify!
+FreeRTOSConfig.h=-1771758151
+RTE_Device_917.h=761190166
+aws_iot_config.h=545461458
+pin_config.h=-703502246
+sl_board_configuration.h=-559764842
+sl_board_control.h=1349580067
+sl_core_config.h=-119586893
+sl_main_start_task_config.h=-1054800951
+sl_net_default_values.h=-2060976431
+sl_si91x_button_init_btn0_config.h=969274212
+sl_si91x_button_pin_config.h=876901465
+sl_si91x_debug_swo_config.h=-1037086647
+sl_si91x_dma_config.h=-1624331129
+sl_si91x_iostream_swo_config.h=1798460623
+sl_si91x_power_manager_config_1.h=-195289737
+sl_si91x_power_manager_wakeup_source_config.h=447954923
+sl_si91x_stack_size_config.h=1151736032
+sl_si91x_wrap_config.h=831747740
+sl_sleeptimer_config.h=1360009810
+sl_wifi_region_db_config.h=645397337
