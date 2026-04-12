@@ -54,6 +54,7 @@
 
 //! uLogger API
 #include <ulogger.h>
+#include "sl_sleeptimer.h"
 
 #include "logging.h"
 
@@ -246,6 +247,8 @@ static mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
 #define PRETRIG_BUF_SIZE 300
 static uint8_t pretrigger_buf[PRETRIG_BUF_SIZE];
 
+static uint32_t get_tick(void);
+
 static ulogger_config_t g_ulogger_config = {
     .fault_reboot_cb = fault_reboot,
     .stack_top_address_cb = stack_get_top_address,
@@ -258,6 +261,9 @@ static ulogger_config_t g_ulogger_config = {
     .pretrigger_log_count = 0,
     .pretrigger_buffer = pretrigger_buf,
     .pretrigger_buffer_size = PRETRIG_BUF_SIZE,
+
+    .get_tick = get_tick,
+    .tick_rate_hz = 32768,          // Sleeptimer RTC at 32.768 kHz
 
     // Crash dump header metadata
     .application_id = ULOGGER_APPLICATION_ID,
@@ -275,11 +281,9 @@ static ulogger_config_t g_ulogger_config = {
 // Ulogger callback functions
 // ============================================================================
 
-// Binary logging support functions
-uint32_t ulogger_get_timestamp(void)
+static uint32_t get_tick(void)
 {
-  // Use the host timestamp (milliseconds)
-  return sl_si91x_host_get_timestamp();
+  return sl_sleeptimer_get_tick_count();
 }
 
 void fault_reboot(void) {
