@@ -154,7 +154,6 @@ volatile uint8_t config_subscribed = 0; // Track if config topic is subscribed
 //! Log config state – saved defaults allow reverting after timeout
 static osTimerId_t config_timeout_timer = NULL;
 static ulogger_flags_level_t saved_default_flags_level = { .flags = 0xFFFFFFFF, .level = ULOG_ERROR };
-static uint8_t default_flags_saved = 0;
 
 /******************************************************
 *               Variable Definitions
@@ -241,15 +240,6 @@ void config_subscribe_handler(struct _Client *pClient,
 
   log_local("\r\nLog config received: level=%u, module_flags=0x%08lX, timeout=%lus\r\n",
             level_byte, new_flags, timeout_seconds);
-
-  // Save current defaults the first time we receive a config message
-  if (!default_flags_saved) {
-    ulogger_config_t *cfg = ulogger_get_config();
-    if (cfg) {
-      saved_default_flags_level = cfg->flags_level;
-    }
-    default_flags_saved = 1;
-  }
 
   // Apply the new config
   ulogger_flags_level_t new_cfg = { .flags = new_flags, .level = (uint8_t)level_byte };
@@ -475,6 +465,12 @@ void mqtt_task_thread(void *argument)
   log_local("\r\nMQTT message queue created successfully\r\n");
 
   data_received_semaphore = osSemaphoreNew(1, 0, NULL);
+
+  // Snapshot the default log config before any cloud overrides are applied
+  ulogger_config_t *cfg = ulogger_get_config();
+  if (cfg) {
+    saved_default_flags_level = cfg->flags_level;
+  }
 
   start_aws_mqtt();
 }
