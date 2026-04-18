@@ -78,6 +78,7 @@
 #define SUBSCRIBE_TO_TOPIC    "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL)  //! Subscribe Topic to receive the message from cloud
 #define PUBLISH_REGISTER_BOOT "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)
 #define PUBLISH_BINLOG_TOPIC  "binlog/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)                       //! Binary log publish topic
+#define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
 #define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": 1001, \"version\": \"v2.0.0\"}"
 
 //#define PUBLISH_ON_TOPIC      "logs/v0/975773647/226138"  //! Publish Topic to send the status from application to cloud
@@ -126,6 +127,7 @@ void subscribe_handler(struct _Client *pClient,
 void disconnect_notify_handler(AWS_IoT_Client *pClient, void *data);
 ulogger_config_t *ulogger_get_config(void);
 sl_status_t mqtt_publish_message(const char *topic, const char *payload, uint8_t qos);
+void config_subscribe_handler(struct _Client *pClient, char *pTopicName, short unsigned int topicNameLen, IoT_Publish_Message_Params *pParams, void *pClientData);
 
 //! Enumeration for states in application
 typedef enum app_state {
@@ -147,6 +149,12 @@ volatile uint8_t boot_message_sent = 0;  // Track if boot message was published
 volatile uint8_t boot_puback_received = 0;  // Track if boot PUBACK was received
 volatile uint32_t session_token = 0;  // Store received session token
 volatile uint8_t binary_log_sent = 0;  // Track if binary log was sent
+volatile uint8_t config_subscribed = 0; // Track if config topic is subscribed
+
+//! Log config state – saved defaults allow reverting after timeout
+static osTimerId_t config_timeout_timer = NULL;
+static ulogger_flags_level_t saved_default_flags_level = { .flags = 0xFFFFFFFF, .level = ULOG_ERROR };
+static uint8_t default_flags_saved = 0;
 
 /******************************************************
 *               Variable Definitions
@@ -180,6 +188,84 @@ extern volatile uint8_t pub_state, qos1_publish_handle, select_given;
 /******************************************************
 *               Function Definitions
 ******************************************************/
+
+// ---------------------------------------------------------------------------
+// Log config helpers
+// ---------------------------------------------------------------------------
+
+static void config_timeout_callback(void *arg)
+{
+  (void)arg;
+  log_local("\r\nLog config timeout expired – reverting to default config\r\n");
+  ulogger_set_flags_level(&saved_default_flags_level);
+}
+
+void config_subscribe_handler(struct _Client *pClient,
+                              char *pTopicName,
+                              short unsigned int topicNameLen,
+                              IoT_Publish_Message_Params *pParams,
+                              void *data)
+{
+  UNUSED_PARAMETER(pClient);
+  UNUSED_PARAMETER(pTopicName);
+  UNUSED_PARAMETER(topicNameLen);
+  UNUSED_PARAMETER(data);
+
+  /*
+   * Binary packet layout (9 bytes, little-endian):
+   *   offset 0:   log_level     (uint8)  0=DEBUG 1=INFO 2=WARNING 3=ERROR 4=CRITICAL
+   *   offset 1-4: module_flags  (uint32) bitfield, 0xFFFFFFFF = all modules
+   *   offset 5-8: timeout_secs  (uint32) seconds
+   */
+  if (pParams->payloadLen < 9) {
+    log_local("\r\nConfig packet too short (%u bytes), ignoring\r\n", pParams->payloadLen);
+    return;
+  }
+
+  const uint8_t *buf = (const uint8_t *)pParams->payload;
+
+  uint8_t  level_byte      = buf[0];
+  uint32_t new_flags       = (uint32_t)buf[1]
+                           | ((uint32_t)buf[2] << 8)
+                           | ((uint32_t)buf[3] << 16)
+                           | ((uint32_t)buf[4] << 24);
+  uint32_t timeout_seconds = (uint32_t)buf[5]
+                           | ((uint32_t)buf[6] << 8)
+                           | ((uint32_t)buf[7] << 16)
+                           | ((uint32_t)buf[8] << 24);
+
+  if (level_byte > ULOG_CRITICAL) {
+    log_local("\r\nConfig packet: invalid level byte %u, ignoring\r\n", level_byte);
+    return;
+  }
+
+  log_local("\r\nLog config received: level=%u, module_flags=0x%08lX, timeout=%lus\r\n",
+            level_byte, new_flags, timeout_seconds);
+
+  // Save current defaults the first time we receive a config message
+  if (!default_flags_saved) {
+    ulogger_config_t *cfg = ulogger_get_config();
+    if (cfg) {
+      saved_default_flags_level = cfg->flags_level;
+    }
+    default_flags_saved = 1;
+  }
+
+  // Apply the new config
+  ulogger_flags_level_t new_cfg = { .flags = new_flags, .level = (uint8_t)level_byte };
+  ulogger_set_flags_level(&new_cfg);
+
+  // (Re)start the revert timer
+  if (config_timeout_timer == NULL) {
+    config_timeout_timer = osTimerNew(config_timeout_callback, osTimerOnce, NULL, NULL);
+  }
+  if (config_timeout_timer != NULL) {
+    osTimerStop(config_timeout_timer);
+    osTimerStart(config_timeout_timer, timeout_seconds * 1000U);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 void async_socket_select(fd_set *fd_read, fd_set *fd_write, fd_set *fd_except, int32_t status)
 {
@@ -508,7 +594,23 @@ sl_status_t start_aws_mqtt(void)
             application_state = AWS_MQTT_SUBSCRIBE_STATE;
           }
         } else {
-          log_local("\rSubscribed to topic: %s with QoS%d\n", test, SUBSCRIBE_QOS);
+          log_local("\rSubscribed to boot topic: %s with QoS%d\n", test, SUBSCRIBE_QOS);
+
+          // Also subscribe to the cloud log-config topic
+          char config_topic[] = SUBSCRIBE_CONFIG_TOPIC;
+          IoT_Error_t config_rc = aws_iot_mqtt_subscribe(&mqtt_client,
+                                                         config_topic,
+                                                         strlen(config_topic),
+                                                         SUBSCRIBE_QOS,
+                                                         config_subscribe_handler,
+                                                         NULL);
+          if (config_rc == SUCCESS) {
+            log_local("\rSubscribed to config topic: %s\n", config_topic);
+            config_subscribed = 1;
+          } else {
+            log_local("\rConfig topic subscription failed (rc=%d) – continuing\r\n", config_rc);
+          }
+
           log_local("\rNow calling select to monitor for session token...\n");
           select_given = 0;  // Ensure select will be called in SELECT_STATE
           check_for_recv_data = 0;  // Clear any stale data flag
