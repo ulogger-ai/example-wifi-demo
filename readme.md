@@ -5,7 +5,6 @@ This example demonstrates how to integrate uLogger into a WiFi application runni
 ## Prerequisites
 
 - [Simplicity Studio 5](https://www.silabs.com/developers/simplicity-studio) with the Gecko SDK installed
-- Python 3.9 or greater
 - A supported Silicon Labs radio board (BRD4002A with SiWG917 module, BRD2605A)
 - A [uLogger](https://www.ulogger.ai) account
 - GNU ARM Toolchain - GNU ARM v12.2.1
@@ -22,6 +21,10 @@ This example demonstrates how to integrate uLogger into a WiFi application runni
 4. Make Sure the SDK and toolchain text is not showing red. If it is red, that means you'll need to download those packages in the package manager. Click next.
 5. Uncheck the box for `Use default location` and change the location to point the location where you downloaded the repo. It should include the name of the folder itself. An example would be `C:\my-demo-app\example-wifi-demo`
 6. Click Finish to complete the import.
+7. Expand the project and open the `example-wifi-demo.slcp` in the project files.
+8. In the Project Details section, click the `...` in the top right corner and select `Force Generation` to complete the project setup.
+
+![Force Generation](image/project-generation.png)
 
 
 ---
@@ -51,16 +54,17 @@ Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the 
 
 ---
 
-## 4. Configure the Python Script
+## 4. Configure the Credentials
 
 ### Download Your MQTT Certificates
 
 1. Log in to the uLogger web application.
 2. Click **Settings** in the navigation panel.
 3. Click **Download MQTT Certificate**.
-4. Extract the downloaded zip file and copy the following two files into the project directory:
+4. Extract the downloaded zip file and copy the following three files into the project directory:
    - `certificate.pem.crt`
    - `private.pem.key`
+   - `ulogger_certs_keys.h`
 
 ### Set Your Customer ID
 
