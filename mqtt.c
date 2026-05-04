@@ -79,7 +79,9 @@
 #define PUBLISH_REGISTER_BOOT "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)
 #define PUBLISH_BINLOG_TOPIC  "binlog/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)                       //! Binary log publish topic
 #define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
+#define PUBLISH_METRICS_TOPIC "metrics/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)  //! Metrics publish topic
 #define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": 1001, \"version\": \"v2.0.0\"}"
+#define METRICS_PUBLISH_INTERVAL_MS 60000  //! Publish RSSI metric every 60 seconds
 
 //#define PUBLISH_ON_TOPIC      "logs/v0/975773647/226138"  //! Publish Topic to send the status from application to cloud
 
@@ -155,6 +157,10 @@ volatile uint8_t config_subscribed = 0; // Track if config topic is subscribed
 static osTimerId_t config_timeout_timer = NULL;
 static ulogger_flags_level_t saved_default_flags_level = { .flags = 0xFFFFFFFF, .level = ULOG_ERROR };
 
+//! Periodic RSSI metric publishing
+static osTimerId_t metrics_timer = NULL;
+static volatile uint8_t metrics_publish_pending = 0;
+
 /******************************************************
 *               Variable Definitions
 ******************************************************/
@@ -197,6 +203,12 @@ static void config_timeout_callback(void *arg)
   (void)arg;
   log_local("\r\nLog config timeout expired – reverting to default config\r\n");
   ulogger_set_flags_level(&saved_default_flags_level);
+}
+
+static void metrics_timer_callback(void *arg)
+{
+  (void)arg;
+  metrics_publish_pending = 1;
 }
 
 void config_subscribe_handler(struct _Client *pClient,
@@ -607,6 +619,15 @@ sl_status_t start_aws_mqtt(void)
             log_local("\rConfig topic subscription failed (rc=%d) – continuing\r\n", config_rc);
           }
 
+          // Start periodic RSSI metric timer (once)
+          if (metrics_timer == NULL) {
+            metrics_timer = osTimerNew(metrics_timer_callback, osTimerPeriodic, NULL, NULL);
+            if (metrics_timer != NULL) {
+              osTimerStart(metrics_timer, METRICS_PUBLISH_INTERVAL_MS);
+              log_local("\rStarted RSSI metrics timer (%d ms interval)\n", METRICS_PUBLISH_INTERVAL_MS);
+            }
+          }
+
           log_local("\rNow calling select to monitor for session token...\n");
           select_given = 0;  // Ensure select will be called in SELECT_STATE
           check_for_recv_data = 0;  // Clear any stale data flag
@@ -653,6 +674,39 @@ sl_status_t start_aws_mqtt(void)
           }
         } else if (SUBSCRIBE_QOS == QOS0 || PUBLISH_QOS == QOS0) {
           application_state = AWS_MQTT_PUBLISH_STATE;
+        }
+
+        // Publish RSSI metric when the periodic timer fires
+        if (metrics_publish_pending && boot_message_sent) {
+          metrics_publish_pending = 0;
+
+          int32_t rssi = 0;
+          sl_status_t rssi_status = sl_wifi_get_signal_strength(SL_WIFI_CLIENT_INTERFACE, &rssi);
+          if (rssi_status == SL_STATUS_OK) {
+            char metrics_payload[256];
+            snprintf(metrics_payload, sizeof(metrics_payload),
+                     "{\"device_serial\":\"" STR(ULOGGER_DEVICE_SERIAL) "\","
+                     "\"metrics\":[{\"name\":\"rssi\",\"value\":%ld}]}",
+                     (long)rssi);
+
+            publish_iot_msg.qos        = PUBLISH_QOS;
+            publish_iot_msg.payload    = metrics_payload;
+            publish_iot_msg.isRetained = 0;
+            publish_iot_msg.payloadLen = strlen(metrics_payload);
+
+            if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+              pub_state = 1;
+            }
+            rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_METRICS_TOPIC,
+                                      strlen(PUBLISH_METRICS_TOPIC), &publish_iot_msg);
+            if (rc == SUCCESS) {
+              log_local("\r\nPublished RSSI metric: %ld dBm\r\n", (long)rssi);
+            } else {
+              log_local("\r\nFailed to publish RSSI metric (rc=%d)\r\n", rc);
+            }
+          } else {
+            log_local("\r\nFailed to read RSSI (status=0x%lX)\r\n", rssi_status);
+          }
         }
 
         if (session_token != 0) {

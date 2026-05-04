@@ -77,6 +77,9 @@ Open `wifi_example.json` and update the `customer_id` and `application_id` to ma
 The `.axf` file contains the debug symbols needed to decompress binary logs on the cloud. This file must be uploaded after each firmware build, and is called automatically as a project post-build step.
 
 1. Download the uLogger upload client from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html).
+2. If you are not using windows, you will need to configure the axf-upload client build step in Simplicity Studio. Open the project properties and select `Settings` in the menu and open the `Build Steps` tab. You will need to change the `Post-build-steps` to point to the executable name for the ulogger-upload client and location that you downloaded.
+
+![Build Setting](image/build-setting.png)
 
 ---
 
