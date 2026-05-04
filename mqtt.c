@@ -80,10 +80,8 @@
 #define PUBLISH_BINLOG_TOPIC  "binlog/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)                       //! Binary log publish topic
 #define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
 #define PUBLISH_METRICS_TOPIC "metrics/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)  //! Metrics publish topic
-#define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": 1001, \"version\": \"v2.0.0\"}"
+#define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": " STR(ULOGGER_DEVICE_SERIAL) ", \"version\": \"v2.0.0\"}"
 #define METRICS_PUBLISH_INTERVAL_MS 60000  //! Publish RSSI metric every 60 seconds
-
-//#define PUBLISH_ON_TOPIC      "logs/v0/975773647/226138"  //! Publish Topic to send the status from application to cloud
 
 #define SUBSCRIBE_QOS         QOS1              //! Quality of Service for subscribed topic "SUBSCRIBE_TO_TOPIC"
 #define PUBLISH_QOS           QOS1              //! Quality of Service for publish topic "PUBLISH_ON_TOPIC"

@@ -58,6 +58,9 @@
 
 #include "logging.h"
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 /******************************************************
 *                    Constants
 ******************************************************/
@@ -269,7 +272,7 @@ static ulogger_config_t g_ulogger_config = {
     .application_id = ULOGGER_APPLICATION_ID,
     .git_hash = "no_cache",
     .device_type = ULOGGER_DEVICE_TYPE,
-    .device_serial = "1001",
+    .device_serial = STR(ULOGGER_DEVICE_SERIAL),
     .version_string = "v2.0.0",
 };
 

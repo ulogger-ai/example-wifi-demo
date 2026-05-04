@@ -19,12 +19,17 @@
 
 #pragma once
 
+#include "ulogger_config.h"
+
+#define _IOT_STR_HELPER(x) #x
+#define _IOT_STR(x) _IOT_STR_HELPER(x)
+
 // =================================================
 #define AWS_IOT_MQTT_HOST \
   "mqtt.ulogger.ai" ///< Customer specific MQTT HOST. The same will be used for Thing Shadow
 #define AWS_IOT_MQTT_PORT      8883                ///< default port for MQTT/S
-#define AWS_IOT_MQTT_CLIENT_ID "cust-975773647-1001" ///< MQTT client ID should be unique for every device
-#define AWS_IOT_MY_THING_NAME  "cust-975773647-1001" ///< Thing Name of the Shadow this device is associated with
+#define AWS_IOT_MQTT_CLIENT_ID "cust-" _IOT_STR(ULOGGER_CUSTOMER_ID) "-" _IOT_STR(ULOGGER_DEVICE_SERIAL) ///< MQTT client ID should be unique for every device
+#define AWS_IOT_MY_THING_NAME  "cust-" _IOT_STR(ULOGGER_CUSTOMER_ID) "-" _IOT_STR(ULOGGER_DEVICE_SERIAL) ///< Thing Name of the Shadow this device is associated with
 // =================================================
 
 // MQTT PubSub
