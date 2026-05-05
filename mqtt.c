@@ -576,9 +576,9 @@ sl_status_t start_aws_mqtt(void)
       } break;
 
       case AWS_MQTT_INIT_SELECT_STATE: {
-        // Go directly to publish - select will be called after subscription
-        log_local("\rReady to publish boot message\r\n");
-        application_state = AWS_MQTT_PUBLISH_STATE;
+        // Subscribe first, then publish boot message to avoid race condition
+        log_local("\rSubscribing before publishing boot message\r\n");
+        application_state = AWS_MQTT_SUBSCRIBE_STATE;
       } break;
 
       case AWS_MQTT_SUBSCRIBE_STATE: {
@@ -626,10 +626,10 @@ sl_status_t start_aws_mqtt(void)
             }
           }
 
-          log_local("\rNow calling select to monitor for session token...\n");
+          log_local("\rSubscription complete, now publishing boot message...\n");
           select_given = 0;  // Ensure select will be called in SELECT_STATE
           check_for_recv_data = 0;  // Clear any stale data flag
-          application_state = AWS_MQTT_SELECT_STATE;
+          application_state = AWS_MQTT_PUBLISH_STATE;
         }
 
       } break;
@@ -881,8 +881,8 @@ sl_status_t start_aws_mqtt(void)
           log_local("\rBoot message published and acknowledged!\r\n");
           boot_message_sent = 1;
           boot_puback_received = 1;  // PUBACK already handled by SDK
-          // Now subscribe to receive session token
-          application_state = AWS_MQTT_SUBSCRIBE_STATE;
+          // Subscription already active, wait for session token
+          application_state = AWS_MQTT_SELECT_STATE;
           break;
         }
 
