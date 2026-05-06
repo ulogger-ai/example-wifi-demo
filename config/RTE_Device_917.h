@@ -52,8 +52,8 @@
 
 #define RTE_BUTTON1_PORT   HP
 #define RTE_BUTTON1_NUMBER 1
-#define RTE_BUTTON1_PIN    (11U)
-#define RTE_BUTTON1_PAD    6
+#define RTE_BUTTON1_PIN    (49U)
+#define RTE_BUTTON1_PAD    13
 
 #define RTE_LED0_PORT   ULP
 #define RTE_LED0_NUMBER 0

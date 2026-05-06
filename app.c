@@ -51,6 +51,7 @@
 #include "sl_si91x_driver_gpio.h"
 #include "sl_si91x_button.h"
 #include "sl_si91x_button_init_btn0_config.h"
+#include "sl_si91x_button_init_btn1_config.h"
 #endif
 
 //! uLogger API
@@ -360,7 +361,7 @@ static void test_func_1(void) {
 }
 
 void sl_si91x_button_isr(uint8_t button, int8_t state) {
-  if (button == SL_BUTTON_BTN0_PIN &&
+  if ((button == SL_BUTTON_BTN0_PIN || button == SL_BUTTON_BTN1_PIN) &&
       state == BUTTON_PRESSED) {
       // Signal the app thread that button was pressed
       if (button_event_flags != NULL) {

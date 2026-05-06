@@ -40,7 +40,18 @@ sl_button_t const button_btn0 = {
   .interrupt_config = SL_BUTTON_CONFIG_BTN0_INTR
 };
 
+sl_button_t const button_btn1 = {
+  .port = SL_BUTTON_BTN1_PORT,
+  .pin = SL_BUTTON_BTN1_PIN,
+  .button_number = SL_BUTTON_BTN1_NUMBER,
+  #ifdef SL_BUTTON_BTN1_PAD
+  .pad = SL_BUTTON_BTN1_PAD,
+  #endif
+  .interrupt_config = SL_BUTTON_CONFIG_BTN1_INTR
+};
+
 void button_init_instances(void)
 {
   sl_si91x_button_init(&button_btn0);
+  sl_si91x_button_init(&button_btn1);
 }
