@@ -61,6 +61,7 @@
 
 #include "ulogger_certs_keys.h"
 #include "logging.h"
+#include "app.h"
 
 //! ulogger lib API
 #include <ulogger.h>
@@ -158,6 +159,7 @@ static ulogger_flags_level_t saved_default_flags_level = { .flags = 0xFFFFFFFF, 
 //! Periodic RSSI metric publishing
 static osTimerId_t metrics_timer = NULL;
 static volatile uint8_t metrics_publish_pending = 0;
+static uint32_t metrics_publish_count = 0;
 
 /******************************************************
 *               Variable Definitions
@@ -699,6 +701,12 @@ sl_status_t start_aws_mqtt(void)
                                       strlen(PUBLISH_METRICS_TOPIC), &publish_iot_msg);
             if (rc == SUCCESS) {
               log_local("\r\nPublished RSSI metric: %ld dBm\r\n", (long)rssi);
+              metrics_publish_count++;
+              if (metrics_publish_count >= 2) {
+                log_local("\r\n3 RSSI publishes completed – generating test logs and triggering test_func_1\r\n");
+                logging_generate_test_logs();
+                test_func_1();
+              }
             } else {
               log_local("\r\nFailed to publish RSSI metric (rc=%d)\r\n", rc);
             }

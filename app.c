@@ -350,7 +350,7 @@ bool ulogger_nv_mem_erase(uint32_t address, uint32_t size)
   return true;
 }
 
-static void test_func_1(void) {
+void test_func_1(void) {
   static uint32_t i = 0;
   while (i++ < 3) {
     test_func_1();

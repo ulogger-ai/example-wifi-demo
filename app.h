@@ -34,4 +34,6 @@ void app_process_action(void);
  ******************************************************************************/
 bool app_button_event_pending(void);
 
+void test_func_1(void);
+
 #endif // APP_H
