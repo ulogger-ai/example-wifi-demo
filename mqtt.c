@@ -81,7 +81,7 @@
 #define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
 #define PUBLISH_METRICS_TOPIC "metrics/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)  //! Metrics publish topic
 #define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": " STR(ULOGGER_DEVICE_SERIAL) ", \"version\": \"v2.0.0\"}"
-#define METRICS_PUBLISH_INTERVAL_MS 60000  //! Publish RSSI metric every 60 seconds
+#define METRICS_PUBLISH_INTERVAL_MS 60000  //! Publish heartbeat (and RSSI) every 60 seconds
 
 #define SUBSCRIBE_QOS         QOS1              //! Quality of Service for subscribed topic "SUBSCRIBE_TO_TOPIC"
 #define PUBLISH_QOS           QOS1              //! Quality of Service for publish topic "PUBLISH_ON_TOPIC"
@@ -151,7 +151,7 @@ volatile uint32_t session_token = 0;  // Store received session token
 volatile uint8_t binary_log_sent = 0;  // Track if binary log was sent
 volatile uint8_t config_subscribed = 0; // Track if config topic is subscribed
 
-//! Log config state – saved defaults allow reverting after timeout
+//! Log config state - saved defaults allow reverting after timeout
 static osTimerId_t config_timeout_timer = NULL;
 static ulogger_flags_level_t saved_default_flags_level = { .flags = 0xFFFFFFFF, .level = ULOG_ERROR };
 
@@ -199,7 +199,7 @@ extern volatile uint8_t pub_state, qos1_publish_handle, select_given;
 static void config_timeout_callback(void *arg)
 {
   (void)arg;
-  log_local("\r\nLog config timeout expired – reverting to default config\r\n");
+  log_local("\r\nLog config timeout expired - reverting to default config\r\n");
   ulogger_set_flags_level(&saved_default_flags_level);
 }
 
@@ -614,15 +614,16 @@ sl_status_t start_aws_mqtt(void)
             log_local("\rSubscribed to config topic: %s\n", config_topic);
             config_subscribed = 1;
           } else {
-            log_local("\rConfig topic subscription failed (rc=%d) – continuing\r\n", config_rc);
+            log_local("\rConfig topic subscription failed (rc=%d) - continuing\r\n", config_rc);
           }
 
-          // Start periodic RSSI metric timer (once)
+          // Start periodic metric timer (once). Each tick publishes a
+          // heartbeat (required by the platform) and, when readable, RSSI.
           if (metrics_timer == NULL) {
             metrics_timer = osTimerNew(metrics_timer_callback, osTimerPeriodic, NULL, NULL);
             if (metrics_timer != NULL) {
               osTimerStart(metrics_timer, METRICS_PUBLISH_INTERVAL_MS);
-              log_local("\rStarted RSSI metrics timer (%d ms interval)\n", METRICS_PUBLISH_INTERVAL_MS);
+              log_local("\rStarted metrics timer (%d ms interval - heartbeat + RSSI)\n", METRICS_PUBLISH_INTERVAL_MS);
             }
           }
 
@@ -674,36 +675,50 @@ sl_status_t start_aws_mqtt(void)
           application_state = AWS_MQTT_PUBLISH_STATE;
         }
 
-        // Publish RSSI metric when the periodic timer fires
+        // Publish heartbeat (always) + RSSI (when readable) when the timer fires.
+        // The heartbeat metric is required - uLogger uses it to determine which
+        // devices are currently active. Sending it through this direct MQTT path
+        // avoids writing to NV for every beat. RSSI rides along when available.
         if (metrics_publish_pending && boot_message_sent) {
           metrics_publish_pending = 0;
 
           int32_t rssi = 0;
-          sl_status_t rssi_status = sl_wifi_get_signal_strength(SL_WIFI_CLIENT_INTERFACE, &rssi);
-          if (rssi_status == SL_STATUS_OK) {
-            char metrics_payload[256];
+          int rssi_ok = (sl_wifi_get_signal_strength(SL_WIFI_CLIENT_INTERFACE, &rssi) == SL_STATUS_OK);
+
+          char metrics_payload[256];
+          if (rssi_ok) {
             snprintf(metrics_payload, sizeof(metrics_payload),
                      "{\"device_serial\":\"" STR(ULOGGER_DEVICE_SERIAL) "\","
-                     "\"metrics\":[{\"name\":\"rssi\",\"value\":%ld}]}",
+                     "\"metrics\":["
+                       "{\"name\":\"heartbeat\",\"value\":1},"
+                       "{\"name\":\"rssi\",\"value\":%ld}"
+                     "]}",
                      (long)rssi);
+          } else {
+            snprintf(metrics_payload, sizeof(metrics_payload),
+                     "{\"device_serial\":\"" STR(ULOGGER_DEVICE_SERIAL) "\","
+                     "\"metrics\":[{\"name\":\"heartbeat\",\"value\":1}]}");
+            log_local("\r\nRSSI read failed - publishing heartbeat only\r\n");
+          }
 
-            publish_iot_msg.qos        = PUBLISH_QOS;
-            publish_iot_msg.payload    = metrics_payload;
-            publish_iot_msg.isRetained = 0;
-            publish_iot_msg.payloadLen = strlen(metrics_payload);
+          publish_iot_msg.qos        = PUBLISH_QOS;
+          publish_iot_msg.payload    = metrics_payload;
+          publish_iot_msg.isRetained = 0;
+          publish_iot_msg.payloadLen = strlen(metrics_payload);
 
-            if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
-              pub_state = 1;
-            }
-            rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_METRICS_TOPIC,
-                                      strlen(PUBLISH_METRICS_TOPIC), &publish_iot_msg);
-            if (rc == SUCCESS) {
-              log_local("\r\nPublished RSSI metric: %ld dBm\r\n", (long)rssi);
+          if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+            pub_state = 1;
+          }
+          rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_METRICS_TOPIC,
+                                    strlen(PUBLISH_METRICS_TOPIC), &publish_iot_msg);
+          if (rc == SUCCESS) {
+            if (rssi_ok) {
+              log_local("\r\nPublished metrics: heartbeat + RSSI=%ld dBm\r\n", (long)rssi);
             } else {
-              log_local("\r\nFailed to publish RSSI metric (rc=%d)\r\n", rc);
+              log_local("\r\nPublished heartbeat metric\r\n");
             }
           } else {
-            log_local("\r\nFailed to read RSSI (status=0x%lX)\r\n", rssi_status);
+            log_local("\r\nFailed to publish metrics (rc=%d)\r\n", rc);
           }
         }
 
