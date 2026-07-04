@@ -74,12 +74,12 @@
 
 #define CERTIFICATE_INDEX 0
 
-#define PUBLISH_CORE_DUMP_TOPIC "core-dump/v0/" STR(ULOGGER_CUSTOMER_ID)
-#define SUBSCRIBE_TO_TOPIC    "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL)  //! Subscribe Topic to receive the message from cloud
-#define PUBLISH_REGISTER_BOOT "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)
-#define PUBLISH_BINLOG_TOPIC  "binlog/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)                       //! Binary log publish topic
-#define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
-#define PUBLISH_METRICS_TOPIC "metrics/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_APPLICATION_ID)  //! Metrics publish topic
+#define PUBLISH_CORE_DUMP_TOPIC "core-dump/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID)
+#define SUBSCRIBE_TO_TOPIC    "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL)  //! Subscribe Topic to receive the message from cloud
+#define PUBLISH_REGISTER_BOOT "boot/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID) "/" STR(ULOGGER_APPLICATION_ID)
+#define PUBLISH_BINLOG_TOPIC  "binlog/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID) "/" STR(ULOGGER_APPLICATION_ID)                       //! Binary log publish topic
+#define SUBSCRIBE_CONFIG_TOPIC "config/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID) "/" STR(ULOGGER_APPLICATION_ID) "/" STR(ULOGGER_DEVICE_SERIAL) //! Subscribe topic for cloud-pushed log config
+#define PUBLISH_METRICS_TOPIC "metrics/v0/" STR(ULOGGER_CUSTOMER_ID) "/" STR(ULOGGER_GROUP_ID) "/" STR(ULOGGER_APPLICATION_ID)  //! Metrics publish topic
 #define MQTT_BOOT_PAYLOAD     "{\"device_type\":\"" ULOGGER_DEVICE_TYPE "\", \"git\": \"no_cache\", \"serial\": " STR(ULOGGER_DEVICE_SERIAL) ", \"version\": \"v2.0.0\"}"
 #define METRICS_PUBLISH_INTERVAL_MS 60000  //! Publish heartbeat (and RSSI) every 60 seconds
 

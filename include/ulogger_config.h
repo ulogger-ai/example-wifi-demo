@@ -38,6 +38,7 @@
 // the cloud back-end can apply the correct decoder.
 #define ULOGGER_DEVICE_SERIAL         1001      // @ULOGGER TODO - define device serial number
 #define ULOGGER_CUSTOMER_ID           12345     // @ULOGGER TODO - define your customer ID
+#define ULOGGER_GROUP_ID              0         // @ULOGGER TODO - define your customer-assigned group ID
 #define ULOGGER_APPLICATION_ID        12345     // @ULOGGER TODO - define your application ID
 #define ULOGGER_DEVICE_TYPE           "WiFi_Demo"
 

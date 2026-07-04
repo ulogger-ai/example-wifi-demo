@@ -45,11 +45,12 @@ All locations that require your credentials are marked with the comment pattern 
 
 ### Set the Application ID
 
-Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the Application ID from your uLogger cloud account:
+Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the Application ID from your uLogger cloud account. If your account uses groups, also set `ULOGGER_GROUP_ID` to the group your device belongs to (use `0` if you are not using groups):
 
 ```c
 // ULOGGER TODO
 #define APPLICATION_ID <your_application_id>
+#define ULOGGER_GROUP_ID <your_group_id>
 ```
 
 ---
@@ -69,6 +70,8 @@ Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the 
 ### Set Your Customer ID
 
 Open `wifi_example.json` and update the `customer_id` and `application_id` to match the values that you recorded in steps 3 and 4.
+
+> Note: MQTT topics now include a `group_id` segment (`.../{customer_id}/{group_id}/{application_id}/...`). The `group_id` used at runtime comes from the `ULOGGER_GROUP_ID` define in `include/ulogger_config.h`, not from `wifi_example.json`.
 
 ---
 
