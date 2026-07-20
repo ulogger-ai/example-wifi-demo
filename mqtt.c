@@ -731,7 +731,7 @@ sl_status_t start_aws_mqtt(void)
 
             // Allocate buffer for the total size returned
             uint8_t *core_dump = (uint8_t *)malloc(core_dump_sz_bytes);
-            Mem_read(ULOGGER_MEM_TYPE_STACK_TRACE, 0, core_dump, core_dump_sz_bytes);
+            ulogger_mem_read(ULOGGER_MEM_TYPE_STACK_TRACE, 0, core_dump, core_dump_sz_bytes);
 
             // Publish binary log to MQTT (header + log data)
             log_local("Publishing core dump: %lu bytes to topic: %s\r\n", core_dump_sz_bytes, PUBLISH_CORE_DUMP_TOPIC);
@@ -746,7 +746,7 @@ sl_status_t start_aws_mqtt(void)
             }
             rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_CORE_DUMP_TOPIC, strlen(PUBLISH_CORE_DUMP_TOPIC), &publish_iot_msg);
             log_local("Core dump publish return code: %d\r\n", rc);
-            Mem_erase_all(ULOGGER_MEM_TYPE_STACK_TRACE);
+            ulogger_mem_erase_all(ULOGGER_MEM_TYPE_STACK_TRACE);
             free(core_dump);
           }
 #endif // CRASH_ENABLED

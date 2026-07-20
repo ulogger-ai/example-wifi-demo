@@ -223,14 +223,14 @@ static const sl_wifi_device_configuration_t client_init_configuration = {
 extern uint8_t __StackTop;
 static const uint8_t *LINKER_STACK_TOP = (uint8_t *)&__StackTop;
 
-static const mem_drv_t nv_log_mem_driver = {
+static const ulogger_mem_drv_t nv_log_mem_driver = {
     .read = ulogger_nv_mem_read,
     .write = ulogger_nv_mem_write,
     .erase = ulogger_nv_mem_erase,
 };
 
 // Memory control blocks for ulogger
-static mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
+static ulogger_mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
     {
         .type = ULOGGER_MEM_TYPE_DEBUG_LOG,
         .start_addr = ULOGGER_LOG_NV_START_ADDRESS,
@@ -462,7 +462,9 @@ static void main_application(void *argument)
   TaskStatus_t status_task;
   vTaskGetInfo(NULL, &status_task, pdFALSE, eInvalid);
 
-  ulogger_init(&g_ulogger_config);
+  if (!ulogger_init(&g_ulogger_config)) {
+    log_local("ulogger_init failed\r\n");
+  }
   logging_init_local();
   generate_init_logs_local();
 
