@@ -750,8 +750,11 @@ sl_status_t start_aws_mqtt(void)
             free(core_dump);
           }
 #endif // CRASH_ENABLED
-          // Get NV log usage (includes header + log data)
-          uint32_t total_size = ulogger_get_nv_log_usage();
+          // Seal the current NV contents as this transfer's payload.  The
+          // returned length describes the frozen snapshot, so the buffer sized
+          // here matches exactly what the read below produces, and anything
+          // logged while the publish is in flight survives the consume.
+          uint32_t total_size = ulogger_seal_nv_logs_for_transfer();
           if (total_size > 0) {
             log_local("NV Log usage: %lu bytes\r\n", total_size);
 
@@ -780,8 +783,10 @@ sl_status_t start_aws_mqtt(void)
               } else {
                 log_local("Binary log published successfully!\r\n");
                 binary_log_sent = 1;
-                // Clear logs after successful publish
-                ulogger_clear_nv_logs();
+                // Release the sealed snapshot.  Consume rather than clear:
+                // clearing erases the whole region and would discard frames
+                // logged while this publish was in flight.
+                ulogger_consume_nv_logs();
               }
             } else {
               log_local("Failed to read NV logs\r\n");
@@ -823,8 +828,9 @@ sl_status_t start_aws_mqtt(void)
         // Flush pretrigger buffer to NV memory before reading
         ulogger_flush_pretrigger_to_nv();
 
-        // Get NV log usage (includes header + log data)
-        uint32_t total_size = ulogger_get_nv_log_usage();
+        // Seal the flushed contents as this transfer's payload — see the
+        // publish path above for why sizing and reading must share a snapshot.
+        uint32_t total_size = ulogger_seal_nv_logs_for_transfer();
 
         log_local("NV Log usage: %lu bytes\r\n", total_size);
 
@@ -858,8 +864,8 @@ sl_status_t start_aws_mqtt(void)
             } else {
               log_local("Binary log published successfully!\r\n");
               binary_log_sent = 1;
-              // Clear logs after successful publish
-              ulogger_clear_nv_logs();
+              // Release the sealed snapshot rather than erasing the region.
+              ulogger_consume_nv_logs();
             }
           } else {
             log_local("Failed to read NV logs\r\n");

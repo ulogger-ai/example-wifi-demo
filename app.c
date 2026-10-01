@@ -74,6 +74,18 @@
 #define NV_LOG_SIZE (ULOGGER_EXCEPTION_NV_END_ADDRESS - ULOGGER_LOG_NV_START_ADDRESS + 1)
 static uint8_t nv_log_storage[NV_LOG_SIZE] __attribute__((section(".noinit")));
 
+// This example fakes NV with RAM, so there is no hardware page size to report.
+// A simulated one is still worth declaring: it switches the library onto the
+// page-wise reclaim path, so a transfer stops discarding entries written while
+// it was in flight -- the behaviour a real flash-backed port would get.  On real
+// hardware, replace this with the erasable unit of the part (e.g. its
+// FLASH_PAGE_SIZE, the same constant the erase() driver steps by).
+//
+// 100 divides both region lengths (1500 and 1100) as well as the exception
+// region's start address, which is what the library requires before it will use
+// the value; a granularity that does not divide them is silently ignored.
+#define NV_SIM_PAGE_SIZE 100
+
 
 #define ENABLE_NWP_POWER_SAVE 1
 #define LOW                   0
@@ -103,7 +115,7 @@ sl_status_t load_certificates_in_flash(void);
 sl_status_t mqtt_publish_message(const char *topic, const char *payload, uint8_t qos);
 
 const void *stack_get_top_address(ulogger_stack_type_t stack_type);
-void fault_reboot(void);
+void fault_reboot(uint8_t cause);
 
 #if WRAP_PRIVATE_KEY
 sl_status_t set_tls_wrapped_private_key(sl_net_credential_id_t id,
@@ -235,13 +247,15 @@ static ulogger_mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
         .type = ULOGGER_MEM_TYPE_DEBUG_LOG,
         .start_addr = ULOGGER_LOG_NV_START_ADDRESS,
         .end_addr = ULOGGER_LOG_NV_END_ADDRESS,
-        .mem_drv = &nv_log_mem_driver
+        .mem_drv = &nv_log_mem_driver,
+        .erase_granularity = NV_SIM_PAGE_SIZE
     },
     {
         .type = ULOGGER_MEM_TYPE_STACK_TRACE,
         .start_addr = ULOGGER_EXCEPTION_NV_START_ADDRESS,
         .end_addr = ULOGGER_EXCEPTION_NV_END_ADDRESS,
-        .mem_drv = &nv_log_mem_driver
+        .mem_drv = &nv_log_mem_driver,
+        .erase_granularity = NV_SIM_PAGE_SIZE
     }
 };
 
@@ -291,7 +305,12 @@ static uint32_t get_tick(void)
   return sl_sleeptimer_get_tick_count();
 }
 
-void fault_reboot(void) {
+void fault_reboot(uint8_t cause) {
+  // `cause` is one of ULOGGER_CRASH_CAUSE, passed by the library once the dump
+  // has been written.  An application that needs to recover differently from a
+  // watchdog bite than from a CPU fault can branch on it here; this demo
+  // resets the same way for every cause.
+  (void)cause;
   NVIC_SystemReset();
 }
 
