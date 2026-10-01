@@ -2,6 +2,8 @@
 
 This example demonstrates how to integrate uLogger into a WiFi application running on a Silicon Labs SiWG917 device. The embedded firmware logs binary debug data over MQTT to publish to the uLogger cloud platform.
 
+The uLogger agent is vendored into this project: the headers in `include/` and the static library in `lib/` are copied from the [embedded_agent](https://github.com/ulogger-ai/embedded_agent) distribution. The pinned version is in `include/ulogger_version.h` — currently **v1.2.6**.
+
 ## Prerequisites
 
 - [Simplicity Studio 5](https://www.silabs.com/developers/simplicity-studio) with the Gecko SDK installed
@@ -91,6 +93,60 @@ Build the Simplicity Studio project and flash it to your device.
 
 ## 7. Generate Logs
 Follow the log instructions that are displayed via the debug output on the virtual com port. You can generate logs and a hard fault by pressing BUTTON0.
+
+## How this example uses uLogger
+
+This section is not part of the setup walkthrough — it describes what the demo code does, and what to change when you adapt it to your own hardware. For the full integration guide see the [embedded_agent README](https://github.com/ulogger-ai/embedded_agent).
+
+### The log transfer cycle
+
+The publish path in `mqtt.c` follows a **seal → read → consume** cycle:
+
+1. `ulogger_seal_nv_logs_for_transfer()` freezes the current NV contents and returns the size of that snapshot, which is used to size the publish buffer.
+2. `ulogger_read_nv_logs_with_header()` fills the buffer — a 25-byte header followed by the log data — and it is published to the binary-log MQTT topic.
+3. On a successful publish, `ulogger_consume_nv_logs()` discards the snapshot.
+
+The last step uses `ulogger_consume_nv_logs()` rather than `ulogger_clear_nv_logs()` deliberately. Clearing erases the whole region, which would destroy any log written *while the publish was in flight*; consuming discards only the sealed snapshot.
+
+> **Duplicates after a reset.** The consume position lives in RAM, so a reset re-offers everything still physically present in the NV region — including entries already delivered but not yet erased. Expect duplicates of up to a region's worth of entries after a reset. This is the deliberate trade for not losing entries written during a transfer. Note that tick values cannot be used to de-duplicate, because the tick counter restarts at 0 on reset.
+
+### Non-volatile storage is simulated
+
+**This demo does not use real non-volatile memory.** `app.c` backs both uLogger regions with a single static RAM buffer placed in `.noinit`:
+
+| Region | Offset | Size | Purpose |
+|---|---|---|---|
+| `ULOGGER_MEM_TYPE_DEBUG_LOG` | `0` | 1500 bytes | Binary logs |
+| `ULOGGER_MEM_TYPE_STACK_TRACE` | `1500` | 1100 bytes | Crash dumps |
+
+`.noinit` means the contents survive a **reset**, which is what lets a crash dump be captured and then published after reboot — but they do **not** survive a power cycle. For a production port, replace `ulogger_nv_mem_read/write/erase()` with real flash routines and point the regions at a flash area reserved in your linker script.
+
+`erase_granularity` is set to `NV_SIM_PAGE_SIZE` (100 bytes), a stand-in for a flash page. It switches the library onto page-wise reclaim, so a transfer stops discarding entries written while it was in flight. On real hardware, set this to the erasable unit of your part — the same constant your `erase()` driver steps by. The library only uses the value if `start_addr` *and* the region length are both multiples of it, otherwise it silently falls back to whole-region erases.
+
+### Logging configuration
+
+The demo logs at `ULOG_DEBUG` with all modules enabled, and the cloud can change both at runtime — `mqtt.c` subscribes to a config topic and applies updates via `ulogger_set_flags_level()`.
+
+Note that `pretrigger_log_count` is **0** in this example, so the pretrigger buffer is effectively disabled and every log that passes the filter goes straight to NV. Raise it (and keep `pretrigger_buffer_size` large enough) if you want the dash-cam behaviour of retaining recent lower-severity logs and flushing them only when something goes wrong.
+
+### Crash dumps
+
+`fault_reboot_cb` runs once a dump is captured. As of agent v1.2.5 it takes the crash cause:
+
+```c
+static void fault_reboot(uint8_t cause) {
+    (void)cause;   // one of ULOGGER_CRASH_CAUSE
+    NVIC_SystemReset();
+}
+```
+
+This demo resets the same way for every cause; an application that needs to recover differently from a watchdog bite than from a CPU fault can branch on `cause` here.
+
+### `ulogger_config.h` is yours
+
+`include/ulogger_config.h` holds your module list, application ID, group ID and NV addresses. It is **not** shipped by the agent distribution, so updating the vendored library will never overwrite your settings.
+
+---
 
 ## Exploring the web platform
 Now that you have successfully published logs into uLogger Cloud, let's review how to view those.
