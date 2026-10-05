@@ -19,22 +19,17 @@
 
 #pragma once
 
-#include "ulogger_config.h"
-
-#define _IOT_STR_HELPER(x) #x
-#define _IOT_STR(x) _IOT_STR_HELPER(x)
-
 // =================================================
 #define AWS_IOT_MQTT_HOST \
-  "mqtt.ulogger.ai" ///< Customer specific MQTT HOST. The same will be used for Thing Shadow
+  "a2m21kovu9tcsh-ats.iot.us-east-2.amazonaws.com" ///< Customer specific MQTT HOST. The same will be used for Thing Shadow
 #define AWS_IOT_MQTT_PORT      8883                ///< default port for MQTT/S
-#define AWS_IOT_MQTT_CLIENT_ID "cust-" _IOT_STR(ULOGGER_CUSTOMER_ID) "-" _IOT_STR(ULOGGER_DEVICE_SERIAL) ///< MQTT client ID should be unique for every device
-#define AWS_IOT_MY_THING_NAME  "cust-" _IOT_STR(ULOGGER_CUSTOMER_ID) "-" _IOT_STR(ULOGGER_DEVICE_SERIAL) ///< Thing Name of the Shadow this device is associated with
+#define AWS_IOT_MQTT_CLIENT_ID "silicon_labs_thing" ///< MQTT client ID should be unique for every device
+#define AWS_IOT_MY_THING_NAME  "silicon_labs_thing" ///< Thing Name of the Shadow this device is associated with
 // =================================================
 
 // MQTT PubSub
 #define AWS_IOT_MQTT_TX_BUF_LEN \
-  1024 ///< Any time a message is sent out through the MQTT layer. The message is copied into this buffer anytime a publish is done. This will also be used in the case of Thing Shadow
+  512 ///< Any time a message is sent out through the MQTT layer. The message is copied into this buffer anytime a publish is done. This will also be used in the case of Thing Shadow
 #define AWS_IOT_MQTT_RX_BUF_LEN \
   512 ///< Any message that comes into the device should be less than this buffer size. If a received message is bigger than this buffer size the message will be dropped.
 #define AWS_IOT_MQTT_NUM_SUBSCRIBE_HANDLERS \
@@ -70,5 +65,8 @@
   1000 ///< Minimum time before the First reconnect attempt is made as part of the exponential back-off algorithm
 #define AWS_IOT_MQTT_MAX_RECONNECT_WAIT_INTERVAL \
   128000 ///< Maximum time interval after which exponential back-off will stop attempting to reconnect.
+
+#define AWS_IOT_MAX_RETRANSMISSION_TIMEOUT \
+  128 ///< Maximum retransmission timeout in seconds (must be power of 2, max value is 128)
 
 #define DISABLE_METRICS false ///< Disable the collection of metrics by setting this to true

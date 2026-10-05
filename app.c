@@ -30,6 +30,14 @@
 
 #include <string.h>
 #include "cmsis_os2.h"
+// stack_get_top_address() below uses the raw FreeRTOS task API (TaskStatus_t,
+// vTaskGetInfo) to find the top of the current task's stack for crash dumps.
+// cmsis_os2.h only declares the CMSIS-RTOS2 wrapper and does not pull these in,
+// so they are included explicitly.
+#include "FreeRTOS.h"
+#include "task.h"
+// The NV memory driver functions below use assert().
+#include <assert.h>
 #include "sl_status.h"
 #include "sl_net.h"
 #include "sl_wifi.h"
