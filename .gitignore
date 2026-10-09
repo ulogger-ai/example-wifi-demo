@@ -23,3 +23,12 @@ cmake_gcc/example-wifi-demo.cmake
 # Local IDE / tooling state
 .silabsExtContext
 .codex/
+
+# Device MQTT credentials from the uLogger certificate bundle.
+# The bundle also contains ulogger_certs_keys.h, covered above.
+certificate.pem.crt
+private.pem.key
+ulogger_CA.pem.crt
+endpoint.txt
+thing_name.txt
+cert_*.zip
