@@ -139,6 +139,9 @@
 // $[QEI]
 // [QEI]$
 
+// $[SDIO]
+// [SDIO]$
+
 // $[HSPI_SECONDARY]
 // [HSPI_SECONDARY]$
 
@@ -163,19 +166,15 @@
 // $[SDC_CH4]
 // [SDC_CH4]$
 
-// $[CUSTOM_PIN_NAME]
-#ifndef _PORT                                   
-#define _PORT                                    HP
-#endif
-#ifndef _PIN                                    
-#define _PIN                                     6
-#endif
+// $[MCU_CLK_OUT]
+// [MCU_CLK_OUT]$
 
-#ifndef BTN0_PORT                               
-#define BTN0_PORT                                UULP_VBAT
+// $[CUSTOM_PIN_NAME]
+#ifndef _PORT
+#define _PORT 0
 #endif
-#ifndef BTN0_PIN                                
-#define BTN0_PIN                                 2
+#ifndef _PIN
+#define _PIN 6
 #endif
 
 // [CUSTOM_PIN_NAME]$

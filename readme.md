@@ -79,12 +79,40 @@ Open `wifi_example.json` and update the `customer_id` and `application_id` to ma
 
 ## 5. Publish the AXF File to uLogger Cloud
 
-The `.axf` file contains the debug symbols needed to decompress binary logs on the cloud. This file must be uploaded after each firmware build, and is called automatically as a project post-build step.
+The AXF file carries the debug symbols the cloud needs to decode this firmware's binary logs. The cloud matches them to incoming logs on the **version string**, so it has to be re-uploaded whenever you change the firmware or bump `.version_string` in `app.c`. A stale AXF fails quietly: logs arrive and simply cannot be decoded, with nothing to say why.
+
+Under Simplicity Studio 6 the build output is `cmake_gcc/build/base/example-wifi-demo.out` — the same ELF-with-symbols, just renamed from `.axf`. `wifi_example.json` already points at it.
 
 1. Download the uLogger upload client from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html).
-2. If you are not using windows, you will need to configure the axf-upload client build step in Simplicity Studio. Open the project properties and select `Settings` in the menu and open the `Build Steps` tab. You will need to change the `Post-build-steps` to point to the executable name for the ulogger-upload client and location that you downloaded.
 
-![Build Setting](image/build-setting.png)
+2. Put your MQTT certificates in the project directory. Download the bundle from the uLogger web app (or `get_certificate_bundle` over MCP) and unpack `certificate.pem.crt` and `private.pem.key` here. They are gitignored.
+
+   The upload authenticates with these, so a certificate belonging to a different customer fails with a bare `403 Forbidden` that says nothing about which account it expected.
+
+3. Set your account identifiers. These override the placeholders in `wifi_example.json`, so you do not have to edit (or accidentally commit) them:
+
+   ```bash
+   export ULOGGER_CUSTOMER_ID=<your customer id>
+   export ULOGGER_APPLICATION_ID=<your application id>
+   ```
+
+4. To upload by hand:
+
+   ```bash
+   ulogger-upload -json wifi_example.json -project_dir . \
+       -customer_id $ULOGGER_CUSTOMER_ID -application_id $ULOGGER_APPLICATION_ID
+   ```
+
+   To have it run automatically after every build, point `ULOGGER_UPLOAD` at the client and reconfigure:
+
+   ```bash
+   export ULOGGER_UPLOAD=/path/to/ulogger-upload
+   cmake --preset <your preset>      # or -DULOGGER_UPLOAD=/path/to/ulogger-upload
+   ```
+
+   With `ULOGGER_UPLOAD` unset the step is skipped and the build is unaffected. With it set, a failed upload fails the build — having opted in, a silent miss is the outcome worth avoiding.
+
+> Under Simplicity Studio 5 this ran from the Eclipse `Build Steps` project setting. SS6 builds through CMake and does not carry that setting over, so it now lives in `cmake_gcc/CMakeLists.txt`.
 
 ---
 
