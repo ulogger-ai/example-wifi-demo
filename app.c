@@ -473,6 +473,11 @@ static void main_application(void *argument)
   sl_net_wifi_client_profile_t profile = { 0 };
   sl_ip_address_t ip_address           = { 0 };
 
+  // Keep the M4 in PS4 so tickless idle never sleeps. A BTN0 press while the core is
+  // asleep only wakes it and never reaches sl_si91x_button_isr, so the button would do
+  // nothing. Staying awake also keeps the debugger attachable.
+  sl_si91x_power_manager_add_ps_requirement(SL_SI91X_POWER_MANAGER_PS4);
+
   // Store app thread ID for button ISR to signal
   app_thread_id = osThreadGetId();
   

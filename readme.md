@@ -170,6 +170,12 @@ static void fault_reboot(uint8_t cause) {
 
 This demo resets the same way for every cause; an application that needs to recover differently from a watchdog bite than from a CPU fault can branch on `cause` here.
 
+### Low-power sleep is disabled
+
+The `sl_power_manager` component brings in tick-less idle, which puts the M4 to sleep whenever no task is running. In this demo that is almost always: the main thread spends its time waiting for BTN0. A press while the core is asleep only wakes it — it never reaches `sl_si91x_button_isr`, so the button appears to do nothing.
+
+`main_application()` in `app.c` therefore holds a PS4 requirement (`sl_si91x_power_manager_add_ps_requirement(SL_SI91X_POWER_MANAGER_PS4)`) so the core never sleeps. This also keeps the debugger able to attach. A battery-powered product that needs the sleep should instead set the button event from the NPSS GPIO wake-up path.
+
 ### `ulogger_config.h` is yours
 
 `include/ulogger_config.h` holds your module list, application ID, group ID and NV addresses. It is **not** shipped by the agent distribution, so updating the vendored library will never overwrite your settings.
