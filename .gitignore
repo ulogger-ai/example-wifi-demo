@@ -32,3 +32,6 @@ ulogger_CA.pem.crt
 endpoint.txt
 thing_name.txt
 cert_*.zip
+
+# uLogger upload client binary (downloaded per platform from ulogger.ai)
+ulogger-upload*
