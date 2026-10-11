@@ -30,6 +30,14 @@
 
 #include <string.h>
 #include "cmsis_os2.h"
+// stack_get_top_address() below uses the raw FreeRTOS task API (TaskStatus_t,
+// vTaskGetInfo) to find the top of the current task's stack for crash dumps.
+// cmsis_os2.h only declares the CMSIS-RTOS2 wrapper and does not pull these in,
+// so they are included explicitly.
+#include "FreeRTOS.h"
+#include "task.h"
+// The NV memory driver functions below use assert().
+#include <assert.h>
 #include "sl_status.h"
 #include "sl_net.h"
 #include "sl_wifi.h"
@@ -464,6 +472,11 @@ static void main_application(void *argument)
   UNUSED_PARAMETER(argument);
   sl_net_wifi_client_profile_t profile = { 0 };
   sl_ip_address_t ip_address           = { 0 };
+
+  // Keep the M4 in PS4 so tickless idle never sleeps. A BTN0 press while the core is
+  // asleep only wakes it and never reaches sl_si91x_button_isr, so the button would do
+  // nothing. Staying awake also keeps the debugger attachable.
+  sl_si91x_power_manager_add_ps_requirement(SL_SI91X_POWER_MANAGER_PS4);
 
   // Store app thread ID for button ISR to signal
   app_thread_id = osThreadGetId();

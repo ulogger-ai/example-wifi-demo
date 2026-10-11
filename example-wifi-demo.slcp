@@ -6,92 +6,522 @@ description: |
 category: Example|Wi-Fi
 filter:
 - name: Project Difficulty
-  value: [Beginner]
+  value:
+  - Beginner
 - name: Wireless Technology
-  value: [Wi-Fi]
+  value:
+  - Wi-Fi
 package: wifi
 quality: production
 readme:
-- {path: readme.md}
-- {path: readme.md}
+- path: readme.md
+- path: readme.md
 source:
-- {path: app.c}
+- path: app.c
 include:
 - path: .
   file_list:
-  - {path: app.h}
-sdk: {id: simplicity_sdk, version: 2025.6.2}
+  - path: app.h
+sdk:
+  vendor: silabs
+  id: simplicity_sdk
+  version: 2026.6.1
 toolchain_settings:
-- {value: -Wall -Werror, option: gcc_compiler_option}
+- value: -Wall -Werror
+  option: gcc_compiler_option
 component:
-- {from: wiseconnect3_sdk, id: SIWG917M111MGTBA}
-- {from: wiseconnect3_sdk, id: aws_sdk}
-- {from: wiseconnect3_sdk, id: basic_network_config_manager}
-- {from: wiseconnect3_sdk, id: brd4338a}
-- {from: wiseconnect3_sdk, id: calendar_ulp_component}
-- {from: wiseconnect3_sdk, id: gpio_npss_component}
-- {from: wiseconnect3_sdk, id: iostream_swo_si91x}
-- {from: wiseconnect3_sdk, id: network_manager}
-- {from: wiseconnect3_sdk, id: si91x_debug_swo}
-- {from: wiseconnect3_sdk, id: si91x_memory_default_config}
-- {from: wiseconnect3_sdk, id: sl_power_manager}
-- {from: wiseconnect3_sdk, id: sl_si91x_asynchronous_socket}
-- instance: [btn0]
-  from: wiseconnect3_sdk
+- package: simplicity_sdk
+  vendor: silabs
+  id: brd4002a
+- package: simplicity_sdk
+  vendor: silabs
+  id: freertos
+- package: simplicity_sdk
+  vendor: silabs
+  id: freertos_heap_4
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_main
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: SIWG917M111MGTBA
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: aws_sdk
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: basic_network_config_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: brd4338a
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: calendar_ulp_component
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: gpio_npss_component
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: iostream_swo_si91x
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: network_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_debug_swo
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_memory_default_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_power_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_asynchronous_socket
+- package: wiseconnect3_sdk
+  instance:
+  - btn0
+  vendor: silabs
   id: sl_si91x_button_917
-- {from: wiseconnect3_sdk, id: sl_si91x_internal_stack}
-- {from: wiseconnect3_sdk, id: sl_si91x_mem_pool_buffers_with_quota}
-- {from: wiseconnect3_sdk, id: sl_si91x_wrap}
-- {from: wiseconnect3_sdk, id: syscalls}
-- {from: wiseconnect3_sdk, id: wifi}
-- {from: wiseconnect3_sdk, id: wifi_resources}
-- {from: wiseconnect3_sdk, id: wireless_wakeup_ulp_component}
-- {from: wiseconnect3_sdk, id: wiseconnect3_common}
-- {id: brd4002a}
-- {id: freertos}
-- {id: freertos_heap_4}
-- {id: sl_main}
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_internal_stack
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_mem_pool_buffers_with_quota
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_wrap
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: syscalls
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wifi
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wifi_resources
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wireless_wakeup_ulp_component
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wiseconnect_common
+autoselected_components:
+- package: simplicity_sdk
+  vendor: silabs
+  id: agents_md
+- package: simplicity_sdk
+  vendor: silabs
+  id: atomic
+- package: simplicity_sdk
+  vendor: silabs
+  id: bit
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_common
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_core
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_os2_ext_task_register
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_rtos2_headers
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_rtos2_init
+- package: simplicity_sdk
+  vendor: silabs
+  id: cmsis_rtos2_tick
+- package: simplicity_sdk
+  vendor: silabs
+  id: code_classification
+- package: simplicity_sdk
+  vendor: silabs
+  id: component_catalog
+- package: simplicity_sdk
+  vendor: silabs
+  id: emlib_core
+- package: simplicity_sdk
+  vendor: silabs
+  id: enum
+- package: simplicity_sdk
+  vendor: silabs
+  id: event_handler
+- package: simplicity_sdk
+  vendor: silabs
+  id: freertos_kernel_cortexm
+- package: simplicity_sdk
+  vendor: silabs
+  id: iostream
+- package: simplicity_sdk
+  vendor: silabs
+  id: log_none
+- package: simplicity_sdk
+  vendor: silabs
+  id: mem_pool
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_assert
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_common
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_core
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_main_init
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_main_kernel
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_main_memory_init
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_main_process_action
+- package: simplicity_sdk
+  vendor: silabs
+  id: sl_string
+- package: simplicity_sdk
+  vendor: silabs
+  id: sleeptimer
+- package: simplicity_sdk
+  vendor: silabs
+  id: sleeptimer_cortexm
+- package: simplicity_sdk
+  vendor: silabs
+  id: slist
+- package: simplicity_sdk
+  vendor: silabs
+  id: status
+- package: simplicity_sdk
+  vendor: silabs
+  id: toolchain_variant_arm
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: basic_credential_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: board_configuration_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: brd4338a_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: bsd_socket
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: bsd_socket_api
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_common_driver
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_driver_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_peripheral_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_udma
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_usart
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: cmsis_usart_driver
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: device_needs_ram_execution
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: external_flash_none
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: external_psram_none
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: freertos_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: malloc_thread_safety
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: opn_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: power_manager_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_clks
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_crc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_egpio
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_packing
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_power_save
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_romtable
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_romtable_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_udma
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_udma_wrapper
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: romdriver_ulpss
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_adc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_aux_reference_volt_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_board
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_chip
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_clock_update
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_crc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_dac
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_egpio
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_opamp
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_sysrtc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_udma
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_udma_wrapper
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_usart
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: rsilib_userconfig
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_common_flash
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_debug
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_device_init_nvic
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_log_none
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_mem_config_1
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_stack_size_configuration
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: si91x_tickless_mode
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_adc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_bjt_temperature_sensor
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_calendar
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_clock_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_dma
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_gpio
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_gpio_peripheral
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_agents_md
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_crypto
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_errno
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_fwup
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_mcu
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_socket
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sl_si91x_wireless
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sleeptimer_si91x
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_buffer_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_command_engine
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_event_engine
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_hal_si91x
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_queue_manager
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_routing_utility
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_si91x_wifi_command_engine
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_si91x_wifi_event_handler
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sli_wifi
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: sllib_m4_power_save
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_bod
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_headers
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_ipmu
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_pll
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_power_save
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_reg_spi
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_rtc
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_temp_sensor
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_time_period
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: systemlevel_ulpss_clk
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: udma_linker_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wakeup_source_config
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wiseconnect_toolchain_gcc_standard
+- package: wiseconnect3_sdk
+  vendor: silabs
+  id: wiseconnect_toolchain_plugin
 other_file:
-- {path: resources/readme/aws_choosing_policy.png}
-- {path: resources/readme/application_prints_soc.png}
-- {path: resources/readme/application_prints_soc1.png}
-- {path: resources/readme/application_prints_ncp.png}
-- {path: resources/readme/aws_create_policy.png}
-- {path: resources/readme/aws_create_thing_attach_policy.png}
-- {path: resources/readme/aws_create_thing_policy_create.png}
-- {path: resources/readme/aws_create_thing_step1.png}
-- {path: resources/readme/aws_create_thing_step2.png}
-- {path: resources/readme/aws_create_thing_step3.png}
-- {path: resources/readme/aws_create_thing_step4.png}
-- {path: resources/readme/aws_create_thing_step5.png}
-- {path: resources/readme/aws_iot_mqtt_host_url_1.png}
-- {path: resources/readme/aws_iot_mqtt_host_url_2.png}
-- {path: resources/readme/aws_sdk_architecture.png}
-- {path: resources/readme/aws_thing_certificates_download.png}
-- {path: resources/readme/aws_policy.png}
-- {path: resources/readme/power_meter_avg_current_consumption.png}
-- {path: resources/readme/setup_soc_ncp.png}
-- {path: resources/readme/energy_profiler_step_6.png}
-- {path: resources/readme/energy_profiler_step_7.png}
-- {path: resources/readme/pm_wakeup_configuration.png}
+- path: resources/readme/aws_choosing_policy.png
+- path: resources/readme/application_prints_soc.png
+- path: resources/readme/application_prints_soc1.png
+- path: resources/readme/application_prints_ncp.png
+- path: resources/readme/aws_create_policy.png
+- path: resources/readme/aws_create_thing_attach_policy.png
+- path: resources/readme/aws_create_thing_policy_create.png
+- path: resources/readme/aws_create_thing_step1.png
+- path: resources/readme/aws_create_thing_step2.png
+- path: resources/readme/aws_create_thing_step3.png
+- path: resources/readme/aws_create_thing_step4.png
+- path: resources/readme/aws_create_thing_step5.png
+- path: resources/readme/aws_iot_mqtt_host_url_1.png
+- path: resources/readme/aws_iot_mqtt_host_url_2.png
+- path: resources/readme/aws_sdk_architecture.png
+- path: resources/readme/aws_thing_certificates_download.png
+- path: resources/readme/aws_policy.png
+- path: resources/readme/power_meter_avg_current_consumption.png
+- path: resources/readme/setup_soc_ncp.png
+- path: resources/readme/energy_profiler_step_6.png
+- path: resources/readme/energy_profiler_step_7.png
+- path: resources/readme/pm_wakeup_configuration.png
 define:
-- {name: SL_SI91X_PRINT_DBG_LOG}
-- {name: SLI_SI91X_MCU_MOV_ROM_API_TO_FLASH}
+- name: SL_SI91X_PRINT_DBG_LOG
+- name: SLI_SI91X_MCU_MOV_ROM_API_TO_FLASH
 requires:
-- {name: device_needs_ram_execution}
+- name: device_needs_ram_execution
 configuration:
-- {name: SL_BOARD_ENABLE_VCOM, value: '1'}
-- {name: SL_ENABLE_GPIO_WAKEUP_SOURCE, value: '1'}
-- {name: ENABLE_NPSS_GPIO_2, value: '1'}
-- {name: SL_ENABLE_CALENDAR_WAKEUP_SOURCE, value: '1'}
-- {name: ENABLE_ALARM, value: '1'}
-- {name: ALARM_TIME_MSEC, value: '30000'}
-- {name: SL_SI91X_WRAP_KEY_BUFFER_SIZE, value: '1696'}
+- name: SL_BOARD_ENABLE_VCOM
+  value: '1'
+- name: SL_ENABLE_GPIO_WAKEUP_SOURCE
+  value: '1'
+- name: ENABLE_NPSS_GPIO_2
+  value: '1'
+- name: SL_ENABLE_CALENDAR_WAKEUP_SOURCE
+  value: '1'
+- name: ENABLE_ALARM
+  value: '1'
+- name: ALARM_TIME_MSEC
+  value: '30000'
+- name: SL_SI91X_WRAP_KEY_BUFFER_SIZE
+  value: '1696'
 ui_hints:
   highlight:
-  - {path: readme.md, focus: true}
+  - path: readme.md
+    focus: true
 sdk_extension:
-- {id: wiseconnect3_sdk, version: 3.5.2}
+- vendor: silabs
+  id: wiseconnect3_sdk
+  version: 4.1.1
 post_build:
-- {path: example-wifi-demo.slpb}
+- path: example-wifi-demo.slpb
 
