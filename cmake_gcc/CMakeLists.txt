@@ -10,7 +10,18 @@ project(
 
 # Include the definition of the slc_example-wifi-demo target,
 # which contains the content of the SLC project
-include(example-wifi-demo.cmake)
+# It holds absolute SDK paths, so it is gitignored and a fresh clone does not
+# have it until the project has been generated once.
+include(example-wifi-demo.cmake OPTIONAL RESULT_VARIABLE slc_project)
+if(NOT slc_project)
+    message(FATAL_ERROR
+        "\n"
+        "cmake_gcc/example-wifi-demo.cmake was not found. It is generated from "
+        "example-wifi-demo.slcp and is not committed.\n"
+        "Generate the project first, by opening this folder in Simplicity Studio 6 "
+        "or with 'slc generate' (see \"1. Generate the project\" in readme.md).\n"
+        )
+endif()
 
 # app.c is compiled INTO the slc object library, not into the executable, so an
 # include path set on the executable target below never reaches it. The agent
