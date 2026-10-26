@@ -30,7 +30,7 @@ The repository does not contain a ready-to-build project: `autogen/` and the CMa
       --sdk-package-path=<simplicity_sdk path>,<wiseconnect path> --tt
   ```
 
-Generation rewrites the files in `autogen/` and `cmake_gcc/autogen_toolchain.cmake` with paths for your machine. Do not commit those changes. It keeps your files in `config/`, but check `git diff config/` afterwards: an SDK update can replace a customized config file with the SDK default (this happened to `config/aws_iot_config.h` during the Simplicity Studio 6 migration).
+Generation rewrites the files in `autogen/` and `cmake_gcc/autogen_toolchain.cmake` with paths for your machine. Do not commit those changes. It keeps your files in `config/`, but check `git diff config/` afterwards: an SDK update can replace a customized config file with the SDK default (this happened to `config/aws_iot_config.h` during the Simplicity Studio 6 migration). `config/aws_iot_config.h` is now declared as a `config_file` override in `example-wifi-demo.slcp`, so SLC uses this project's copy instead of the WiSeConnect template. Keep the uLogger broker host and `cust-`-prefixed client/thing IDs in it.
 
 
 ---

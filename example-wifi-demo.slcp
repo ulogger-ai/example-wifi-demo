@@ -22,6 +22,11 @@ include:
 - path: .
   file_list:
   - path: app.h
+config_file:
+- override:
+    component: wifi_resources
+    file_id: aws_iot_config
+  path: config/aws_iot_config.h
 sdk:
   vendor: silabs
   id: simplicity_sdk
