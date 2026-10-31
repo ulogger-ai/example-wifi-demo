@@ -49,6 +49,8 @@ Generation rewrites the files in `autogen/` and `cmake_gcc/autogen_toolchain.cma
 
 Open the file `config/sl_net_default_values.h`. Set the field `DEFAULT_WIFI_CLIENT_PROFILE_SSID` to your access point SSID and `DEFAULT_WIFI_CLIENT_CREDENTIAL` to the access point passphrase.
 
+The SiWG917 radio is **2.4 GHz only**, so the network must broadcast on 2.4 GHz (WPA2-Personal by default, set by `DEFAULT_WIFI_CLIENT_SECURITY_TYPE`). If the board cannot find the network it prints `Error while connecting to Access point: 0x10003`. That usually means the SSID is wrong, out of range, or 5 GHz only. On Windows, `netsh wlan show networks mode=bssid` lists nearby networks and the band each one uses.
+
 All locations that require your credentials are marked with the comment pattern `ULOGGER TODO`. Search for this pattern in the project to find every location you need to update.
 
 ### Set the Customer and Application IDs
@@ -100,7 +102,7 @@ The AXF file carries the debug symbols the cloud needs to decode this firmware's
 
 Under Simplicity Studio 6 the build output is `cmake_gcc/build/base/example-wifi-demo.out` — the same ELF-with-symbols, just renamed from `.axf`. `wifi_example.json` already points at it.
 
-1. Download the uLogger upload client from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html).
+1. Download the uLogger upload client for your platform from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html) (on Windows, `ulogger-upload-windows-amd64.exe`).
 
 2. Put your MQTT certificates in the project directory. Download the bundle from the uLogger web app (or `get_certificate_bundle` over MCP) and unpack `certificate.pem.crt` and `private.pem.key` here. They are gitignored.
 
@@ -129,7 +131,17 @@ Under Simplicity Studio 6 the build output is `cmake_gcc/build/base/example-wifi
 
    With `ULOGGER_UPLOAD` unset the step is skipped and the build is unaffected. With it set, a failed upload fails the build — having opted in, a silent miss is the outcome worth avoiding.
 
-> Under Simplicity Studio 5 this ran from the Eclipse `Build Steps` project setting. SS6 builds through CMake and does not carry that setting over, so it now lives in `cmake_gcc/CMakeLists.txt`.
+   **The upload is off by default.** A build in Simplicity Studio 6 or VS Code does not upload anything until `ULOGGER_UPLOAD` is set. CMake reads the variable when it configures, and configure prints either `uLogger AXF upload enabled: …` or `uLogger AXF upload skipped (set ULOGGER_UPLOAD to enable)`.
+
+   To enable it for builds started from VS Code on Windows, set the three variables as user environment variables. VS Code only reads environment variables when it starts:
+
+   ```powershell
+   setx ULOGGER_UPLOAD "C:\path\to\ulogger-upload-windows-amd64.exe"
+   setx ULOGGER_CUSTOMER_ID <your customer id>
+   setx ULOGGER_APPLICATION_ID <your application id>
+   ```
+
+   Then fully quit and restart VS Code and run **CMake: Delete Cache and Reconfigure**. A plain rebuild keeps the old configuration. After linking, the build output shows `Publishing AXF to uLogger Cloud`.
 
 ---
 
@@ -150,9 +162,31 @@ The app prints the NWP version when its MQTT task starts: `Firmware version is: 
 
 ### Build and flash the application
 
-Build the project (Simplicity Studio 6, or `cmake --preset project` followed by `cmake --build --preset default_config` in `cmake_gcc/`) and flash `cmake_gcc/build/base/example-wifi-demo.rps` to your device.
+Build the project in one of three ways:
+
+- **Simplicity Studio 6:** build the project from Studio 6.
+- **VS Code:** build with the Silicon Labs extension (it builds through CMake).
+- **Command line:** in `cmake_gcc/`, run `cmake --preset project` followed by `cmake --build --preset default_config`.
+
+The build writes `example-wifi-demo.out` (the AXF, see step 5), `.rps`, `.hex`, `.s37` and `.bin` to `cmake_gcc/build/base/`.
+
+Flash `cmake_gcc/build/base/example-wifi-demo.rps` to the board, either from the Silicon Labs **Devices** view in VS Code or with Simplicity Commander:
+
+```bash
+commander rps load cmake_gcc/build/base/example-wifi-demo.rps --serialno <J-Link serial>
+```
+
+`commander adapter list` shows the J-Link serial of each connected kit. The BRD4002A mainboard reports itself as a Wireless Pro Kit with a BRD4338A radio board.
 
 If `commander` reports `Could not connect debugger`, retry: the first attempt can fail while the debug adapter is busy.
+
+### The board is missing from the VS Code Devices view
+
+The Silicon Labs extension gets its device list from the Simplicity Device Manager service that Studio 6 also uses, so a board can show in Studio 6 but not in VS Code. Check, in order:
+
+1. **Unsaved user settings.** On every start the extension writes `silabs.simplicityDeviceManagerPath` into your user `settings.json`. If that file is open with unsaved changes, the write fails (`Unable to write into user settings because the file has unsaved changes` in the extension host log), and the Devices view never connects. Save the file and run **Developer: Reload Window**. To stop the extension rewriting the path, set `"silabs.useOptionalToolPathDefinitions": true`. It then uses the paths already in your settings.
+2. **Other tools holding the J-Link.** Close Simplicity Studio 4 or 5 if they are running. Disable extensions that scan J-Links themselves, such as nRF Connect, for this workspace.
+3. **The board is not on USB.** Run `commander adapter list`. If the kit is not listed, Windows is not detecting it: try a data-capable USB cable, use the J-Link USB port on the BRD4002A, and set the mainboard's power switch to **AEM**.
 
 ### Debugging in VS Code
 
@@ -165,6 +199,22 @@ The extension rewrites `launch.json` when it regenerates, so re-check these afte
 
 ## 7. Generate Logs
 Follow the log instructions that are displayed via the debug output on the virtual com port (115200 baud). You can generate logs and a hard fault by pressing BUTTON0.
+
+A healthy start ends with the board connecting to the cloud, publishing its boot message and receiving a session token:
+
+```
+Connected to AWS IoT Cloud
+Boot message published and acknowledged!
+Session Token Received!
+```
+
+After that it publishes a heartbeat and RSSI metric every 60 seconds (`Published metrics: heartbeat + RSSI=-52 dBm`). Pressing BUTTON0 writes the demo logs and then triggers a hard fault. The board resets, reconnects, and publishes the core dump and the stored logs:
+
+```
+Core dump found: 792 bytes
+Core dump publish return code: 0
+Binary log published successfully!
+```
 
 > **No output on the virtual COM port?** If the Simplicity Device Manager is running, its link daemon (`silink`) takes over the debug adapter, including the serial output, so nothing arrives on `/dev/cu.usbmodem…` (or the COM port on Windows). View the output in the Device Manager's console, or quit the Device Manager so the serial port receives it again.
 
