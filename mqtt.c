@@ -286,6 +286,30 @@ void async_socket_select(fd_set *fd_read, fd_set *fd_write, fd_set *fd_except, i
   application_state = AWS_MQTT_SELECT_STATE;
 }
 
+// Arm an async select on the MQTT socket unless one is already pending.
+//
+// A QoS1 publish waits in iot_tls_read() for select_sem, which only
+// async_socket_select() releases, and each select fires once: the PUBACK wait
+// consumes it and clears select_given. A second QoS1 publish made before the
+// loop returns to AWS_MQTT_SELECT_STATE (core dump, then binary log) would
+// otherwise wait out the SDK's PUBACK timeout -- 640 s in WiSeConnect 4.1.1,
+// stalling the whole MQTT task. Call this before every QoS1 publish.
+static void arm_socket_select(void)
+{
+  if (select_given) {
+    return;
+  }
+  select_given = 1;
+  memset(&read_fds, 0, sizeof(fd_set));
+  FD_SET(mqtt_client.networkStack.socket_id, &read_fds);
+
+  sl_status_t status =
+    sl_si91x_select(mqtt_client.networkStack.socket_id + 1, &read_fds, NULL, NULL, NULL, async_socket_select);
+  if (status != SL_STATUS_OK) {
+    log_local("\rSelect failed with status: 0x%lX\r\n", status);
+  }
+}
+
 void disconnect_notify_handler(AWS_IoT_Client *pClient, void *data)
 {
   UNUSED_PARAMETER(pClient);
@@ -636,20 +660,8 @@ sl_status_t start_aws_mqtt(void)
       } break;
 
       case AWS_MQTT_SELECT_STATE: {
-        if (!select_given) {
-          // Call select to monitor socket for incoming messages
-          select_given = 1;
-          memset(&read_fds, 0, sizeof(fd_set));
-
-          FD_SET(mqtt_client.networkStack.socket_id, &read_fds);
-
-          status =
-            sl_si91x_select(mqtt_client.networkStack.socket_id + 1, &read_fds, NULL, NULL, NULL, async_socket_select);
-
-          if (status != SL_STATUS_OK) {
-            log_local("\rSelect failed with status: 0x%lX\r\n", status);
-          }
-        }
+        // Call select to monitor socket for incoming messages
+        arm_socket_select();
 
         if (check_for_recv_data) {
           check_for_recv_data = 0;
@@ -707,6 +719,7 @@ sl_status_t start_aws_mqtt(void)
           publish_iot_msg.payloadLen = strlen(metrics_payload);
 
           if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+            arm_socket_select();
             pub_state = 1;
           }
           rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_METRICS_TOPIC,
@@ -742,6 +755,7 @@ sl_status_t start_aws_mqtt(void)
             publish_iot_msg.payloadLen = core_dump_sz_bytes;
 
             if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+              arm_socket_select();
               pub_state = 1;
             }
             rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_CORE_DUMP_TOPIC, strlen(PUBLISH_CORE_DUMP_TOPIC), &publish_iot_msg);
@@ -774,6 +788,7 @@ sl_status_t start_aws_mqtt(void)
               publish_iot_msg.payloadLen = bytes_written;
 
               if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+                arm_socket_select();
                 pub_state = 1;
               }
               rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_BINLOG_TOPIC, strlen(PUBLISH_BINLOG_TOPIC), &publish_iot_msg);

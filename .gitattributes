@@ -1,0 +1,3 @@
+# Simplicity Studio on Windows writes SLC-generated files with CRLF line endings.
+# Store everything as LF so a regeneration only shows its real changes in diffs.
+* text=auto
