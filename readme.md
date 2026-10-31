@@ -2,29 +2,37 @@
 
 This example demonstrates how to integrate uLogger into a WiFi application running on a Silicon Labs SiWG917 device. The embedded firmware logs binary debug data over MQTT to publish to the uLogger cloud platform.
 
+The uLogger agent is vendored into this project: the headers in `include/` and the static library in `lib/` are copied from the [embedded_agent](https://github.com/ulogger-ai/embedded_agent) distribution. The pinned version is in `include/ulogger_version.h` — currently **v1.2.6**.
+
 ## Prerequisites
 
-- [Simplicity Studio 5](https://www.silabs.com/developers/simplicity-studio) with the Gecko SDK installed
+- [Simplicity Studio 6](https://www.silabs.com/developers/simplicity-studio), or VS Code with the Silicon Labs extension
 - A supported Silicon Labs radio board (BRD4002A with SiWG917 module, BRD2605A)
 - A [uLogger](https://www.ulogger.ai) account
-- GNU ARM Toolchain - GNU ARM v12.2.1
-- Silicon Labs Simplicity SDK 2025.6.2
-- WiseConnect SDK 3.5.2
+- GNU Arm Toolchain 14.2.rel1
+- Silicon Labs Simplicity SDK 2026.6.1
+- WiSeConnect SDK 4.1.1
+- SiWG917 network processor (NWP) firmware 2.16.5.1.0.8 on the board — see [Update the NWP firmware](#update-the-nwp-firmware)
+
+Install the SDKs and toolchain through the Simplicity Installer.
+
+> **Simplicity Studio 5 is not supported.** Studio 5 cannot install Simplicity SDK 2026.6.1, and this project no longer includes the Eclipse `.cproject`/`.project` files. The last revision that builds in Studio 5 (Simplicity SDK 2025.6.2, WiSeConnect 3.5.2) is commit [`50c3493`](https://github.com/ulogger-ai/example-wifi-demo/tree/50c3493).
 
 ---
 
-## 1. Import the demo example into your worksapce
+## 1. Generate the project
 
-1. In Simplicity studio, click File->Import
-2. Browse to folder where you checked out the uLogger example-wifi-demo
-3. Select the Simplicity Studio (.sls) project and click next
-4. Make Sure the SDK and toolchain text is not showing red. If it is red, that means you'll need to download those packages in the package manager. Click next.
-5. Uncheck the box for `Use default location` and change the location to point the location where you downloaded the repo. It should include the name of the folder itself. An example would be `C:\my-demo-app\example-wifi-demo`
-6. Click Finish to complete the import.
-7. Expand the project and open the `example-wifi-demo.slcp` in the project files.
-8. In the Project Details section, click the `...` in the top right corner and select `Force Generation` to complete the project setup.
+The repository does not contain a ready-to-build project: `autogen/` and the CMake files in `cmake_gcc/` are regenerated for each machine, and `cmake_gcc/example-wifi-demo.cmake` (which holds absolute SDK paths) is not committed. Generate it from `example-wifi-demo.slcp` before the first build.
 
-![Force Generation](image/project-generation.png)
+- **Simplicity Studio 6 / VS Code:** open the folder where you checked out this repository and generate the project from `example-wifi-demo.slcp`. Studio 6 produces a CMake build in `cmake_gcc/`.
+- **Command line:** with `slc-cli` installed (`slt install slc-cli`), run from the repository folder:
+
+  ```bash
+  slc generate -p example-wifi-demo.slcp -d . -o cmake -tlcn gcc \
+      --sdk-package-path=<simplicity_sdk path>,<wiseconnect path> --tt
+  ```
+
+Generation rewrites the files in `autogen/` and `cmake_gcc/autogen_toolchain.cmake` with paths for your machine. Do not commit those changes. It keeps your files in `config/`, but check `git diff config/` afterwards: an SDK update can replace a customized config file with the SDK default (this happened to `config/aws_iot_config.h` during the Simplicity Studio 6 migration). `config/aws_iot_config.h` is now declared as a `config_file` override in `example-wifi-demo.slcp`, so SLC uses this project's copy instead of the WiSeConnect template. Keep the uLogger broker host and `cust-`-prefixed client/thing IDs in it.
 
 
 ---
@@ -41,17 +49,30 @@ This example demonstrates how to integrate uLogger into a WiFi application runni
 
 Open the file `config/sl_net_default_values.h`. Set the field `DEFAULT_WIFI_CLIENT_PROFILE_SSID` to your access point SSID and `DEFAULT_WIFI_CLIENT_CREDENTIAL` to the access point passphrase.
 
+The SiWG917 radio is **2.4 GHz only**, so the network must broadcast on 2.4 GHz (WPA2-Personal by default, set by `DEFAULT_WIFI_CLIENT_SECURITY_TYPE`). If the board cannot find the network it prints `Error while connecting to Access point: 0x10003`. That usually means the SSID is wrong, out of range, or 5 GHz only. On Windows, `netsh wlan show networks mode=bssid` lists nearby networks and the band each one uses.
+
 All locations that require your credentials are marked with the comment pattern `ULOGGER TODO`. Search for this pattern in the project to find every location you need to update.
 
-### Set the Application ID
+### Set the Customer and Application IDs
 
-Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the Application ID from your uLogger cloud account. If your account uses groups, also set `ULOGGER_GROUP_ID` to the group your device belongs to (use `0` if you are not using groups):
+Open `include/ulogger_config.h` and set `ULOGGER_CUSTOMER_ID` and `ULOGGER_APPLICATION_ID` to the values from your uLogger cloud account. If your account uses groups, also set `ULOGGER_GROUP_ID` to the group your device belongs to (use `0` if you are not using groups):
 
 ```c
 // ULOGGER TODO
-#define APPLICATION_ID <your_application_id>
-#define ULOGGER_GROUP_ID <your_group_id>
+#define ULOGGER_CUSTOMER_ID           <your_customer_id>
+#define ULOGGER_APPLICATION_ID        <your_application_id>
+#define ULOGGER_GROUP_ID              <your_group_id>
 ```
+
+The repository ships placeholder values (`12345`), and `app.c` stops the build with an `#error` until you replace them.
+
+Your IDs, like the Wi-Fi credentials above, are specific to you and must not be committed. To keep git from picking up your local edits to these two files:
+
+```bash
+git update-index --skip-worktree include/ulogger_config.h config/sl_net_default_values.h
+```
+
+(Undo with `--no-skip-worktree` before pulling an upstream change to either file.)
 
 ---
 
@@ -67,9 +88,9 @@ Open `include/ulogger_config.h` and update the `APPLICATION_ID` define with the 
    - `private.pem.key`
    - `ulogger_certs_keys.h`
 
-### Set Your Customer ID
+`ulogger_certs_keys.h` is gitignored. The firmware does not build without it.
 
-Open `wifi_example.json` and update the `customer_id` and `application_id` to match the values that you recorded in steps 3 and 4.
+> Note: the upload in step 5 takes your customer and application IDs from environment variables, so `wifi_example.json` keeps its placeholders.
 
 > Note: MQTT topics now include a `group_id` segment (`.../{customer_id}/{group_id}/{application_id}/...`). The `group_id` used at runtime comes from the `ULOGGER_GROUP_ID` define in `include/ulogger_config.h`, not from `wifi_example.json`.
 
@@ -77,20 +98,185 @@ Open `wifi_example.json` and update the `customer_id` and `application_id` to ma
 
 ## 5. Publish the AXF File to uLogger Cloud
 
-The `.axf` file contains the debug symbols needed to decompress binary logs on the cloud. This file must be uploaded after each firmware build, and is called automatically as a project post-build step.
+The AXF file carries the debug symbols the cloud needs to decode this firmware's binary logs. The cloud matches them to incoming logs on the **version string**, so it has to be re-uploaded whenever you change the firmware or bump `.version_string` in `app.c`. A stale AXF fails quietly: logs arrive and simply cannot be decoded, with nothing to say why.
 
-1. Download the uLogger upload client from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html).
-2. If you are not using windows, you will need to configure the axf-upload client build step in Simplicity Studio. Open the project properties and select `Settings` in the menu and open the `Build Steps` tab. You will need to change the `Post-build-steps` to point to the executable name for the ulogger-upload client and location that you downloaded.
+Under Simplicity Studio 6 the build output is `cmake_gcc/build/base/example-wifi-demo.out` — the same ELF-with-symbols, just renamed from `.axf`. `wifi_example.json` already points at it.
 
-![Build Setting](image/build-setting.png)
+1. Download the uLogger upload client for your platform from [https://ulogger.ai/downloads.html](https://ulogger.ai/downloads.html) (on Windows, `ulogger-upload-windows-amd64.exe`).
+
+2. Put your MQTT certificates in the project directory. Download the bundle from the uLogger web app (or `get_certificate_bundle` over MCP) and unpack `certificate.pem.crt` and `private.pem.key` here. They are gitignored.
+
+   The upload authenticates with these, so a certificate belonging to a different customer fails with a bare `403 Forbidden` that says nothing about which account it expected.
+
+3. Set your account identifiers. These override the placeholders in `wifi_example.json`, so you do not have to edit (or accidentally commit) them:
+
+   ```bash
+   export ULOGGER_CUSTOMER_ID=<your customer id>
+   export ULOGGER_APPLICATION_ID=<your application id>
+   ```
+
+4. To upload by hand:
+
+   ```bash
+   ulogger-upload -json wifi_example.json -project_dir . \
+       -customer_id $ULOGGER_CUSTOMER_ID -application_id $ULOGGER_APPLICATION_ID
+   ```
+
+   To have it run automatically after every build, point `ULOGGER_UPLOAD` at the client and reconfigure:
+
+   ```bash
+   export ULOGGER_UPLOAD=/path/to/ulogger-upload
+   cmake --preset <your preset>      # or -DULOGGER_UPLOAD=/path/to/ulogger-upload
+   ```
+
+   With `ULOGGER_UPLOAD` unset the step is skipped and the build is unaffected. With it set, a failed upload fails the build — having opted in, a silent miss is the outcome worth avoiding.
+
+   **The upload is off by default.** A build in Simplicity Studio 6 or VS Code does not upload anything until `ULOGGER_UPLOAD` is set. CMake reads the variable when it configures, and configure prints either `uLogger AXF upload enabled: …` or `uLogger AXF upload skipped (set ULOGGER_UPLOAD to enable)`.
+
+   To enable it for builds started from VS Code on Windows, set the three variables as user environment variables. VS Code only reads environment variables when it starts:
+
+   ```powershell
+   setx ULOGGER_UPLOAD "C:\path\to\ulogger-upload-windows-amd64.exe"
+   setx ULOGGER_CUSTOMER_ID <your customer id>
+   setx ULOGGER_APPLICATION_ID <your application id>
+   ```
+
+   Then fully quit and restart VS Code and run **CMake: Delete Cache and Reconfigure**. A plain rebuild keeps the old configuration. After linking, the build output shows `Publishing AXF to uLogger Cloud`.
 
 ---
 
 ## 6. Build and Flash
-Build the Simplicity Studio project and flash it to your device. 
+
+### Update the NWP firmware
+
+The SiWG917 runs its Wi-Fi stack on a separate network processor (NWP) with its own firmware, and that firmware must match the WiSeConnect SDK. With WiSeConnect 4.1.1, a board running older NWP firmware (for example 2.14.x) joins the access point and gets a DHCP address, but `sl_net_up` then fails with `0x7` (`SL_STATUS_TIMEOUT`) after about 30 seconds and the app prints `Error while connecting to Access point: 0x7`.
+
+Flash the matching image from the WiSeConnect SDK once per board:
+
+```bash
+commander flash <wiseconnect path>/connectivity_firmware/standard/SiWG917-B.2.16.5.1.0.8.rps \
+    --serialno <J-Link serial> --device SIWG917M111MGTBA
+```
+
+The app prints the NWP version when its MQTT task starts: `Firmware version is: 1711.2.16.5.1.0.8`.
+
+### Build and flash the application
+
+Build the project in one of three ways:
+
+- **Simplicity Studio 6:** build the project from Studio 6.
+- **VS Code:** build with the Silicon Labs extension (it builds through CMake).
+- **Command line:** in `cmake_gcc/`, run `cmake --preset project` followed by `cmake --build --preset default_config`.
+
+The build writes `example-wifi-demo.out` (the AXF, see step 5), `.rps`, `.hex`, `.s37` and `.bin` to `cmake_gcc/build/base/`.
+
+Flash `cmake_gcc/build/base/example-wifi-demo.rps` to the board, either from the Silicon Labs **Devices** view in VS Code or with Simplicity Commander:
+
+```bash
+commander rps load cmake_gcc/build/base/example-wifi-demo.rps --serialno <J-Link serial>
+```
+
+`commander adapter list` shows the J-Link serial of each connected kit. The BRD4002A mainboard reports itself as a Wireless Pro Kit with a BRD4338A radio board.
+
+If `commander` reports `Could not connect debugger`, retry: the first attempt can fail while the debug adapter is busy.
+
+### The board is missing from the VS Code Devices view
+
+The Silicon Labs extension gets its device list from the Simplicity Device Manager service that Studio 6 also uses, so a board can show in Studio 6 but not in VS Code. Check, in order:
+
+1. **Unsaved user settings.** On every start the extension writes `silabs.simplicityDeviceManagerPath` into your user `settings.json`. If that file is open with unsaved changes, the write fails (`Unable to write into user settings because the file has unsaved changes` in the extension host log), and the Devices view never connects. Save the file and run **Developer: Reload Window**. To stop the extension rewriting the path, set `"silabs.useOptionalToolPathDefinitions": true`. It then uses the paths already in your settings.
+2. **Other tools holding the J-Link.** Close Simplicity Studio 4 or 5 if they are running. Disable extensions that scan J-Links themselves, such as nRF Connect, for this workspace.
+3. **The board is not on USB.** Run `commander adapter list`. If the kit is not listed, Windows is not detecting it: try a data-capable USB cable, use the J-Link USB port on the BRD4002A, and set the mainboard's power switch to **AEM**.
+
+### Debugging in VS Code
+
+The generated `.vscode/launch.json` may need two fixes before debugging starts:
+
+- `"gdbPath": "."` produces `Could not start GDB process ... spawn . EACCES`. Point it at `arm-none-eabi-gdb` from the GNU Arm 14.2.rel1 toolchain, and set `"serverpath"` to your `JLinkGDBServerCLExe` if it is empty.
+- `"device": "SiWG917M111MGTBA"` makes the J-Link GDB server exit with `Failed to get index for device name`. Use the J-Link device name `SiWG917M111M` instead.
+
+The extension rewrites `launch.json` when it regenerates, so re-check these after a regeneration.
 
 ## 7. Generate Logs
-Follow the log instructions that are displayed via the debug output on the virtual com port. You can generate logs and a hard fault by pressing BUTTON0.
+Follow the log instructions that are displayed via the debug output on the virtual com port (115200 baud). You can generate logs and a hard fault by pressing BUTTON0.
+
+A healthy start ends with the board connecting to the cloud, publishing its boot message and receiving a session token:
+
+```
+Connected to AWS IoT Cloud
+Boot message published and acknowledged!
+Session Token Received!
+```
+
+After that it publishes a heartbeat and RSSI metric every 60 seconds (`Published metrics: heartbeat + RSSI=-52 dBm`). Pressing BUTTON0 writes the demo logs and then triggers a hard fault. The board resets, reconnects, and publishes the core dump and the stored logs:
+
+```
+Core dump found: 792 bytes
+Core dump publish return code: 0
+Binary log published successfully!
+```
+
+> **No output on the virtual COM port?** If the Simplicity Device Manager is running, its link daemon (`silink`) takes over the debug adapter, including the serial output, so nothing arrives on `/dev/cu.usbmodem…` (or the COM port on Windows). View the output in the Device Manager's console, or quit the Device Manager so the serial port receives it again.
+
+## How this example uses uLogger
+
+This section is not part of the setup walkthrough — it describes what the demo code does, and what to change when you adapt it to your own hardware. For the full integration guide see the [embedded_agent README](https://github.com/ulogger-ai/embedded_agent).
+
+### The log transfer cycle
+
+The publish path in `mqtt.c` follows a **seal → read → consume** cycle:
+
+1. `ulogger_seal_nv_logs_for_transfer()` freezes the current NV contents and returns the size of that snapshot, which is used to size the publish buffer.
+2. `ulogger_read_nv_logs_with_header()` fills the buffer — a 25-byte header followed by the log data — and it is published to the binary-log MQTT topic.
+3. On a successful publish, `ulogger_consume_nv_logs()` discards the snapshot.
+
+The last step uses `ulogger_consume_nv_logs()` rather than `ulogger_clear_nv_logs()` deliberately. Clearing erases the whole region, which would destroy any log written *while the publish was in flight*; consuming discards only the sealed snapshot.
+
+> **Duplicates after a reset.** The consume position lives in RAM, so a reset re-offers everything still physically present in the NV region — including entries already delivered but not yet erased. Expect duplicates of up to a region's worth of entries after a reset. This is the deliberate trade for not losing entries written during a transfer. Note that tick values cannot be used to de-duplicate, because the tick counter restarts at 0 on reset.
+
+### Non-volatile storage is simulated
+
+**This demo does not use real non-volatile memory.** `app.c` backs both uLogger regions with a single static RAM buffer placed in `.noinit`:
+
+| Region | Offset | Size | Purpose |
+|---|---|---|---|
+| `ULOGGER_MEM_TYPE_DEBUG_LOG` | `0` | 1500 bytes | Binary logs |
+| `ULOGGER_MEM_TYPE_STACK_TRACE` | `1500` | 1100 bytes | Crash dumps |
+
+`.noinit` means the contents survive a **reset**, which is what lets a crash dump be captured and then published after reboot — but they do **not** survive a power cycle. For a production port, replace `ulogger_nv_mem_read/write/erase()` with real flash routines and point the regions at a flash area reserved in your linker script.
+
+`erase_granularity` is set to `NV_SIM_PAGE_SIZE` (100 bytes), a stand-in for a flash page. It switches the library onto page-wise reclaim, so a transfer stops discarding entries written while it was in flight. On real hardware, set this to the erasable unit of your part — the same constant your `erase()` driver steps by. The library only uses the value if `start_addr` *and* the region length are both multiples of it, otherwise it silently falls back to whole-region erases.
+
+### Logging configuration
+
+The demo logs at `ULOG_DEBUG` with all modules enabled, and the cloud can change both at runtime — `mqtt.c` subscribes to a config topic and applies updates via `ulogger_set_flags_level()`.
+
+Note that `pretrigger_log_count` is **0** in this example, so the pretrigger buffer is effectively disabled and every log that passes the filter goes straight to NV. Raise it (and keep `pretrigger_buffer_size` large enough) if you want the dash-cam behaviour of retaining recent lower-severity logs and flushing them only when something goes wrong.
+
+### Crash dumps
+
+`fault_reboot_cb` runs once a dump is captured. As of agent v1.2.5 it takes the crash cause:
+
+```c
+static void fault_reboot(uint8_t cause) {
+    (void)cause;   // one of ULOGGER_CRASH_CAUSE
+    NVIC_SystemReset();
+}
+```
+
+This demo resets the same way for every cause; an application that needs to recover differently from a watchdog bite than from a CPU fault can branch on `cause` here.
+
+### Low-power sleep is disabled
+
+The `sl_power_manager` component brings in tick-less idle, which puts the M4 to sleep whenever no task is running. In this demo that is almost always: the main thread spends its time waiting for BTN0. A press while the core is asleep only wakes it — it never reaches `sl_si91x_button_isr`, so the button appears to do nothing.
+
+`main_application()` in `app.c` therefore holds a PS4 requirement (`sl_si91x_power_manager_add_ps_requirement(SL_SI91X_POWER_MANAGER_PS4)`) so the core never sleeps. This also keeps the debugger able to attach. A battery-powered product that needs the sleep should instead set the button event from the NPSS GPIO wake-up path.
+
+### `ulogger_config.h` is yours
+
+`include/ulogger_config.h` holds your module list, application ID, group ID and NV addresses. It is **not** shipped by the agent distribution, so updating the vendored library will never overwrite your settings.
+
+---
 
 ## Exploring the web platform
 Now that you have successfully published logs into uLogger Cloud, let's review how to view those.

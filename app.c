@@ -30,6 +30,14 @@
 
 #include <string.h>
 #include "cmsis_os2.h"
+// stack_get_top_address() below uses the raw FreeRTOS task API (TaskStatus_t,
+// vTaskGetInfo) to find the top of the current task's stack for crash dumps.
+// cmsis_os2.h only declares the CMSIS-RTOS2 wrapper and does not pull these in,
+// so they are included explicitly.
+#include "FreeRTOS.h"
+#include "task.h"
+// The NV memory driver functions below use assert().
+#include <assert.h>
 #include "sl_status.h"
 #include "sl_net.h"
 #include "sl_wifi.h"
@@ -51,7 +59,6 @@
 #include "sl_si91x_driver_gpio.h"
 #include "sl_si91x_button.h"
 #include "sl_si91x_button_init_btn0_config.h"
-#include "sl_si91x_button_init_btn1_config.h"
 #endif
 
 //! uLogger API
@@ -73,6 +80,18 @@
 // Initialize to 0xFF to simulate erased Flash memory
 #define NV_LOG_SIZE (ULOGGER_EXCEPTION_NV_END_ADDRESS - ULOGGER_LOG_NV_START_ADDRESS + 1)
 static uint8_t nv_log_storage[NV_LOG_SIZE] __attribute__((section(".noinit")));
+
+// This example fakes NV with RAM, so there is no hardware page size to report.
+// A simulated one is still worth declaring: it switches the library onto the
+// page-wise reclaim path, so a transfer stops discarding entries written while
+// it was in flight -- the behaviour a real flash-backed port would get.  On real
+// hardware, replace this with the erasable unit of the part (e.g. its
+// FLASH_PAGE_SIZE, the same constant the erase() driver steps by).
+//
+// 100 divides both region lengths (1500 and 1100) as well as the exception
+// region's start address, which is what the library requires before it will use
+// the value; a granularity that does not divide them is silently ignored.
+#define NV_SIM_PAGE_SIZE 100
 
 
 #define ENABLE_NWP_POWER_SAVE 1
@@ -103,7 +122,7 @@ sl_status_t load_certificates_in_flash(void);
 sl_status_t mqtt_publish_message(const char *topic, const char *payload, uint8_t qos);
 
 const void *stack_get_top_address(ulogger_stack_type_t stack_type);
-void fault_reboot(void);
+void fault_reboot(uint8_t cause);
 
 #if WRAP_PRIVATE_KEY
 sl_status_t set_tls_wrapped_private_key(sl_net_credential_id_t id,
@@ -223,25 +242,27 @@ static const sl_wifi_device_configuration_t client_init_configuration = {
 extern uint8_t __StackTop;
 static const uint8_t *LINKER_STACK_TOP = (uint8_t *)&__StackTop;
 
-static const mem_drv_t nv_log_mem_driver = {
+static const ulogger_mem_drv_t nv_log_mem_driver = {
     .read = ulogger_nv_mem_read,
     .write = ulogger_nv_mem_write,
     .erase = ulogger_nv_mem_erase,
 };
 
 // Memory control blocks for ulogger
-static mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
+static ulogger_mem_ctl_block_t ulogger_mem_ctl_blocks[] = {
     {
         .type = ULOGGER_MEM_TYPE_DEBUG_LOG,
         .start_addr = ULOGGER_LOG_NV_START_ADDRESS,
         .end_addr = ULOGGER_LOG_NV_END_ADDRESS,
-        .mem_drv = &nv_log_mem_driver
+        .mem_drv = &nv_log_mem_driver,
+        .erase_granularity = NV_SIM_PAGE_SIZE
     },
     {
         .type = ULOGGER_MEM_TYPE_STACK_TRACE,
         .start_addr = ULOGGER_EXCEPTION_NV_START_ADDRESS,
         .end_addr = ULOGGER_EXCEPTION_NV_END_ADDRESS,
-        .mem_drv = &nv_log_mem_driver
+        .mem_drv = &nv_log_mem_driver,
+        .erase_granularity = NV_SIM_PAGE_SIZE
     }
 };
 
@@ -291,7 +312,12 @@ static uint32_t get_tick(void)
   return sl_sleeptimer_get_tick_count();
 }
 
-void fault_reboot(void) {
+void fault_reboot(uint8_t cause) {
+  // `cause` is one of ULOGGER_CRASH_CAUSE, passed by the library once the dump
+  // has been written.  An application that needs to recover differently from a
+  // watchdog bite than from a CPU fault can branch on it here; this demo
+  // resets the same way for every cause.
+  (void)cause;
   NVIC_SystemReset();
 }
 
@@ -361,7 +387,8 @@ static void test_func_1(void) {
 }
 
 void sl_si91x_button_isr(uint8_t button, int8_t state) {
-  if ((button == SL_BUTTON_BTN0_PIN || button == SL_BUTTON_BTN1_PIN) &&
+  // Only btn0 is instantiated in example-wifi-demo.slcp.
+  if (button == SL_BUTTON_BTN0_PIN &&
       state == BUTTON_PRESSED) {
       // Signal the app thread that button was pressed
       if (button_event_flags != NULL) {
@@ -446,6 +473,11 @@ static void main_application(void *argument)
   sl_net_wifi_client_profile_t profile = { 0 };
   sl_ip_address_t ip_address           = { 0 };
 
+  // Keep the M4 in PS4 so tickless idle never sleeps. A BTN0 press while the core is
+  // asleep only wakes it and never reaches sl_si91x_button_isr, so the button would do
+  // nothing. Staying awake also keeps the debugger attachable.
+  sl_si91x_power_manager_add_ps_requirement(SL_SI91X_POWER_MANAGER_PS4);
+
   // Store app thread ID for button ISR to signal
   app_thread_id = osThreadGetId();
   
@@ -462,7 +494,9 @@ static void main_application(void *argument)
   TaskStatus_t status_task;
   vTaskGetInfo(NULL, &status_task, pdFALSE, eInvalid);
 
-  ulogger_init(&g_ulogger_config);
+  if (!ulogger_init(&g_ulogger_config)) {
+    log_local("ulogger_init failed\r\n");
+  }
   logging_init_local();
   generate_init_logs_local();
 

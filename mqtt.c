@@ -286,6 +286,30 @@ void async_socket_select(fd_set *fd_read, fd_set *fd_write, fd_set *fd_except, i
   application_state = AWS_MQTT_SELECT_STATE;
 }
 
+// Arm an async select on the MQTT socket unless one is already pending.
+//
+// A QoS1 publish waits in iot_tls_read() for select_sem, which only
+// async_socket_select() releases, and each select fires once: the PUBACK wait
+// consumes it and clears select_given. A second QoS1 publish made before the
+// loop returns to AWS_MQTT_SELECT_STATE (core dump, then binary log) would
+// otherwise wait out the SDK's PUBACK timeout -- 640 s in WiSeConnect 4.1.1,
+// stalling the whole MQTT task. Call this before every QoS1 publish.
+static void arm_socket_select(void)
+{
+  if (select_given) {
+    return;
+  }
+  select_given = 1;
+  memset(&read_fds, 0, sizeof(fd_set));
+  FD_SET(mqtt_client.networkStack.socket_id, &read_fds);
+
+  sl_status_t status =
+    sl_si91x_select(mqtt_client.networkStack.socket_id + 1, &read_fds, NULL, NULL, NULL, async_socket_select);
+  if (status != SL_STATUS_OK) {
+    log_local("\rSelect failed with status: 0x%lX\r\n", status);
+  }
+}
+
 void disconnect_notify_handler(AWS_IoT_Client *pClient, void *data)
 {
   UNUSED_PARAMETER(pClient);
@@ -636,20 +660,8 @@ sl_status_t start_aws_mqtt(void)
       } break;
 
       case AWS_MQTT_SELECT_STATE: {
-        if (!select_given) {
-          // Call select to monitor socket for incoming messages
-          select_given = 1;
-          memset(&read_fds, 0, sizeof(fd_set));
-
-          FD_SET(mqtt_client.networkStack.socket_id, &read_fds);
-
-          status =
-            sl_si91x_select(mqtt_client.networkStack.socket_id + 1, &read_fds, NULL, NULL, NULL, async_socket_select);
-
-          if (status != SL_STATUS_OK) {
-            log_local("\rSelect failed with status: 0x%lX\r\n", status);
-          }
-        }
+        // Call select to monitor socket for incoming messages
+        arm_socket_select();
 
         if (check_for_recv_data) {
           check_for_recv_data = 0;
@@ -707,6 +719,7 @@ sl_status_t start_aws_mqtt(void)
           publish_iot_msg.payloadLen = strlen(metrics_payload);
 
           if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+            arm_socket_select();
             pub_state = 1;
           }
           rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_METRICS_TOPIC,
@@ -731,7 +744,7 @@ sl_status_t start_aws_mqtt(void)
 
             // Allocate buffer for the total size returned
             uint8_t *core_dump = (uint8_t *)malloc(core_dump_sz_bytes);
-            Mem_read(ULOGGER_MEM_TYPE_STACK_TRACE, 0, core_dump, core_dump_sz_bytes);
+            ulogger_mem_read(ULOGGER_MEM_TYPE_STACK_TRACE, 0, core_dump, core_dump_sz_bytes);
 
             // Publish binary log to MQTT (header + log data)
             log_local("Publishing core dump: %lu bytes to topic: %s\r\n", core_dump_sz_bytes, PUBLISH_CORE_DUMP_TOPIC);
@@ -742,16 +755,20 @@ sl_status_t start_aws_mqtt(void)
             publish_iot_msg.payloadLen = core_dump_sz_bytes;
 
             if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+              arm_socket_select();
               pub_state = 1;
             }
             rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_CORE_DUMP_TOPIC, strlen(PUBLISH_CORE_DUMP_TOPIC), &publish_iot_msg);
             log_local("Core dump publish return code: %d\r\n", rc);
-            Mem_erase_all(ULOGGER_MEM_TYPE_STACK_TRACE);
+            ulogger_mem_erase_all(ULOGGER_MEM_TYPE_STACK_TRACE);
             free(core_dump);
           }
 #endif // CRASH_ENABLED
-          // Get NV log usage (includes header + log data)
-          uint32_t total_size = ulogger_get_nv_log_usage();
+          // Seal the current NV contents as this transfer's payload.  The
+          // returned length describes the frozen snapshot, so the buffer sized
+          // here matches exactly what the read below produces, and anything
+          // logged while the publish is in flight survives the consume.
+          uint32_t total_size = ulogger_seal_nv_logs_for_transfer();
           if (total_size > 0) {
             log_local("NV Log usage: %lu bytes\r\n", total_size);
 
@@ -771,6 +788,7 @@ sl_status_t start_aws_mqtt(void)
               publish_iot_msg.payloadLen = bytes_written;
 
               if (SUBSCRIBE_QOS == QOS1 || PUBLISH_QOS == QOS1) {
+                arm_socket_select();
                 pub_state = 1;
               }
               rc = aws_iot_mqtt_publish(&mqtt_client, PUBLISH_BINLOG_TOPIC, strlen(PUBLISH_BINLOG_TOPIC), &publish_iot_msg);
@@ -780,8 +798,10 @@ sl_status_t start_aws_mqtt(void)
               } else {
                 log_local("Binary log published successfully!\r\n");
                 binary_log_sent = 1;
-                // Clear logs after successful publish
-                ulogger_clear_nv_logs();
+                // Release the sealed snapshot.  Consume rather than clear:
+                // clearing erases the whole region and would discard frames
+                // logged while this publish was in flight.
+                ulogger_consume_nv_logs();
               }
             } else {
               log_local("Failed to read NV logs\r\n");
@@ -823,8 +843,9 @@ sl_status_t start_aws_mqtt(void)
         // Flush pretrigger buffer to NV memory before reading
         ulogger_flush_pretrigger_to_nv();
 
-        // Get NV log usage (includes header + log data)
-        uint32_t total_size = ulogger_get_nv_log_usage();
+        // Seal the flushed contents as this transfer's payload — see the
+        // publish path above for why sizing and reading must share a snapshot.
+        uint32_t total_size = ulogger_seal_nv_logs_for_transfer();
 
         log_local("NV Log usage: %lu bytes\r\n", total_size);
 
@@ -858,8 +879,8 @@ sl_status_t start_aws_mqtt(void)
             } else {
               log_local("Binary log published successfully!\r\n");
               binary_log_sent = 1;
-              // Clear logs after successful publish
-              ulogger_clear_nv_logs();
+              // Release the sealed snapshot rather than erasing the region.
+              ulogger_consume_nv_logs();
             }
           } else {
             log_local("Failed to read NV logs\r\n");
