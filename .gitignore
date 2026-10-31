@@ -1,3 +1,7 @@
+# Simplicity Studio 5 / Eclipse project files. The project builds with
+# Simplicity Studio 6 through cmake_gcc/ only; these are not used.
+.cproject
+.project
 GNU ARM v12.2.1 - Default/
 .pdm/
 .projectlinkstore

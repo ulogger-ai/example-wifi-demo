@@ -16,6 +16,8 @@ The uLogger agent is vendored into this project: the headers in `include/` and t
 
 Install the SDKs and toolchain through the Simplicity Installer.
 
+> **Simplicity Studio 5 is not supported.** Studio 5 cannot install Simplicity SDK 2026.6.1, and this project no longer includes the Eclipse `.cproject`/`.project` files. The last revision that builds in Studio 5 (Simplicity SDK 2025.6.2, WiSeConnect 3.5.2) is commit [`50c3493`](https://github.com/ulogger-ai/example-wifi-demo/tree/50c3493).
+
 ---
 
 ## 1. Generate the project
